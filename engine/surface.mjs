@@ -52,7 +52,7 @@ function* walk(dir) {
     } else if (e.name.endsWith(".md")) yield p;
   }
 }
-const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "duiying-work", "vendor"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
 
 // ---- 语料扫描与索引 ----
 const docs = [];
