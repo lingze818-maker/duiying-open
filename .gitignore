@@ -1,0 +1,6 @@
+node_modules/
+surface.md
+*.log
+.env
+.env.*
+.DS_Store

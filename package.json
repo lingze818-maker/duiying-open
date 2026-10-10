@@ -1,0 +1,27 @@
+{
+  "name": "duiying-open",
+  "version": "0.2.0",
+  "description": "对影 · 人机搭档记忆库 —— 纯本地、零依赖的记忆上浮引擎（开源版）",
+  "type": "module",
+  "bin": {
+    "duiying": "engine/surface.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/engine.test.mjs",
+    "demo": "node engine/surface.mjs \"部署,回滚\" --root examples/partner-xiaolin --detail"
+  },
+  "keywords": [
+    "memory",
+    "ai-agent",
+    "retrieval",
+    "bm25",
+    "local-first",
+    "zero-dependency",
+    "chinese-nlp",
+    "companion-ai"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
