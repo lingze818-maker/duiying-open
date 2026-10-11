@@ -1,5 +1,7 @@
 # 对影 · 人机搭档记忆库（开源版）
 
+![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
+
 > **让普通人与 AI 的长期协作，长出"它真的记得我"的体感。**
 >
 > 纯本地 · 零依赖 · 一个 Node 脚本就是全部。
