@@ -69,9 +69,10 @@ node engine/surface.mjs "部署" --root ./我的记忆库 --json
 
 ## 前端接入
 
-详见 [docs/接入契约.md](docs/接入契约.md)。
+详见 [docs/接入契约.md](docs/接入契约.md)。四条路任选：
 
 - **CLI 直调**（zcode / codex / deepseek harness 等 agent 环境）：工具定义里包一层 `node engine/surface.mjs "$query" --root <库> --json`；
+- **MCP server**（zcode / claude 系 / 任何 MCP 宿主）：`node mcp/server.mjs` 起 stdio 服务，宿主配置一行获得 `memory_surface` / `memory_doctor` 工具；
 - **Node 程序内嵌**：`import { tokenize, buildStats, bm25, buildLinks, spread } from "./engine/lib.mjs"`——纯函数无 IO，怎么编排都行；
 - **记忆条目状态**：在 md 头部写 frontmatter 即生效——
 
