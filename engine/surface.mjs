@@ -14,6 +14,7 @@ const argv = process.argv.slice(2);
 const positional = [];
 let LIMIT = 10, DETAIL = false, USE_LINKS = true, AS_JSON = false, DOCTOR = false;
 const roots = [];
+const excludes = [];
 let outPath = null;
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === "--limit") { LIMIT = parseInt(argv[++i]) || 10; continue; }
@@ -23,18 +24,19 @@ for (let i = 0; i < argv.length; i++) {
   if (argv[i] === "--no-links") { USE_LINKS = false; continue; }
   if (argv[i] === "--json") { AS_JSON = true; continue; }
   if (argv[i] === "--doctor") { DOCTOR = true; continue; }
+  if (argv[i] === "--exclude") { excludes.push(argv[++i]); continue; }
   positional.push(argv[i]);
 }
 const ROOTS = roots.length ? roots : [process.cwd()];
 
 const keywords = positional.join(",").split(/[,，]/).map(s => s.trim()).filter(Boolean);
 if (keywords.length === 0 && !DOCTOR) {
-  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--doctor]');
+  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--doctor] [--exclude <目录名>]');
   process.exit(1);
 }
 
 if (DOCTOR) {
-  const { count, report } = runDoctor(ROOTS);
+  const { count, report } = runDoctor(ROOTS, excludes.length ? excludes : undefined);
   if (report.length === 0) {
     console.log(`[doctor] 语料 ${count} 篇 · 体检通过，无警示项`);
   } else {
@@ -51,6 +53,7 @@ if (DOCTOR) {
 const result = search({
   roots: ROOTS, keywords, limit: LIMIT,
   useLinks: USE_LINKS, detail: DETAIL,
+  exclude: excludes.length ? excludes : undefined,
 });
 
 if (AS_JSON) {

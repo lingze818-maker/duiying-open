@@ -8,15 +8,41 @@ import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
 
-function* walk(dir) {
+function* walk(dir, skip) {
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) {
-      if (!SKIP_DIRS.has(e.name)) yield* walk(p);
+      if (!(skip || SKIP_DIRS).has(e.name)) yield* walk(p, skip);
     } else if (e.name.endsWith(".md")) yield p;
   }
+}
+
+/** 语料扫描（search 与 runDoctor 共用）。 */
+function collectDocs(roots, skip) {
+  const docs = [];
+  for (const root of roots) {
+    const rootFwd = path.resolve(root).split(path.sep).join("/");
+    for (const file of walk(root, skip)) {
+      if (path.basename(file) === "surface.md") continue;
+      let content;
+      try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
+      const titleM = content.match(/^#\s+(.+)$/m);
+      const tokens = tokenize(content);
+      const tf = new Map();
+      for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+      docs.push({
+        rel: file.split(path.sep).join("/").replace(rootFwd + "/", ""),
+        base: path.basename(file).toLowerCase(),
+        title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
+        content, mtime: fs.statSync(file).mtime,
+        tf, len: tokens.length,
+        fm: parseFrontmatter(content),
+      });
+    }
+  }
+  return docs;
 }
 
 function hitLine(content, keywords) {
@@ -38,6 +64,7 @@ function hitLine(content, keywords) {
  *   useLinks?: boolean         联想扩散（默认 true）
  *   detail?: boolean           附命中摘录（默认 false）
  *   nowMs?: number             时间基准（测试注入用）
+ *   exclude?: string[]         目录名排除表（默认 SKIP_DIRS；含蒸馏工作区等结构性语料时传）
  * @returns {object} { total, hint, results: [{path,title,date,score,links,note?,excerpt?}] }
  */
 export function search(opts) {
@@ -47,28 +74,8 @@ export function search(opts) {
   const useLinks = opts.useLinks ?? true;
   const detail = opts.detail ?? false;
   const nowMs = opts.nowMs ?? Date.now();
-
-  const docs = [];
-  for (const root of roots) {
-    const rootFwd = path.resolve(root).split(path.sep).join("/");
-    for (const file of walk(root)) {
-      if (path.basename(file) === "surface.md") continue;
-      let content;
-      try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
-      const titleM = content.match(/^#\s+(.+)$/m);
-      const tokens = tokenize(content);
-      const tf = new Map();
-      for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
-      docs.push({
-        rel: file.split(path.sep).join("/").replace(rootFwd + "/", ""),
-        base: path.basename(file).toLowerCase(),
-        title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
-        content, mtime: fs.statSync(file).mtime,
-        tf, len: tokens.length,
-        fm: parseFrontmatter(content),
-      });
-    }
-  }
+  const skip = opts.exclude ? new Set([...SKIP_DIRS, ...opts.exclude]) : SKIP_DIRS;
+  const docs = collectDocs(roots, skip);
 
   const stats = buildStats(docs);
   const qTokens = [...new Set(keywords.flatMap(k => tokenize(k)))];
@@ -144,10 +151,11 @@ export function search(opts) {
 }
 
 /** doctor 体检（--doctor 与 MCP memory_doctor 共用）。 */
-export function runDoctor(roots) {
+export function runDoctor(roots, exclude) {
+  const skip = exclude ? new Set([...SKIP_DIRS, ...exclude]) : SKIP_DIRS;
   const docs = [];
   for (const root of roots) {
-    for (const file of walk(root)) {
+    for (const file of walk(root, skip)) {
       let content;
       try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
       const titleM = content.match(/^#\s+(.+)$/m);

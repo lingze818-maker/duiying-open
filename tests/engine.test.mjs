@@ -107,3 +107,25 @@ test("CLI 端到端: --root 临时语料 --json 可解析且排序合理", async
 
 import path from "node:path";
 function path_join(...args) { return path.join(...args); }
+
+test("exclude: 排除目录后不再进语料", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const dir = mkdtempSync((await import("node:path")).join(tmpdir(), "exc-"));
+  mkdirSync((await import("node:path")).join(dir, "工作区"), { recursive: true });
+  writeFileSync((await import("node:path")).join(dir, "keep.md"), "# 保留\n\n部署部署部署\n");
+  writeFileSync((await import("node:path")).join(dir, "工作区", "drop.md"), "# 排除\n\n部署部署部署部署部署\n");
+  try {
+    const engine = new URL("../engine/surface.mjs", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+    const { stdout: withDir } = await run("node", [engine, "部署", "--root", dir, "--json"]);
+    const { stdout: noDir } = await run("node", [engine, "部署", "--root", dir, "--json", "--exclude", "工作区"]);
+    const a = JSON.parse(withDir), b = JSON.parse(noDir);
+    assert.ok(a.results.some(r => r.path.includes("工作区")));
+    assert.ok(!b.results.some(r => r.path.includes("工作区")), "排除目录不应出现在结果");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
