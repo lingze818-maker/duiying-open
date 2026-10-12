@@ -25,6 +25,8 @@ import { search, runDoctor } from "../engine/core.mjs";
 const VERSION = "0.2.0";
 const DEFAULT_ROOTS = (process.env.DUIYING_ROOTS || process.cwd())
   .split(";").map(s => s.trim()).filter(Boolean);
+const DEFAULT_EXCLUDE = (process.env.DUIYING_EXCLUDE || "")
+  .split(";").map(s => s.trim()).filter(Boolean);
 
 // ---- 工具定义 ----
 const TOOLS = [
@@ -36,6 +38,7 @@ const TOOLS = [
       properties: {
         query: { type: "string", description: "检索关键词，逗号分隔多个；含'最近/上周/去年'等时间词自动切时间优先模式" },
         root: { type: "array", items: { type: "string" }, description: "可选：覆盖默认语料根目录" },
+        exclude: { type: "array", items: { type: "string" }, description: "可选：追加排除的目录名（默认排除表之外）" },
         limit: { type: "number", description: "可选：最多返回条数（默认 10）" },
         detail: { type: "boolean", description: "可选：附正文命中摘录" },
       },
@@ -49,21 +52,29 @@ const TOOLS = [
       type: "object",
       properties: {
         root: { type: "array", items: { type: "string" }, description: "可选：覆盖默认语料根目录" },
+        exclude: { type: "array", items: { type: "string" }, description: "可选：追加排除的目录名" },
       },
     },
   },
 ];
 
 function toolCall(name, args) {
+  const mergeExclude = extra => {
+    const list = [...DEFAULT_EXCLUDE];
+    if (Array.isArray(extra)) for (const e of extra) if (e && !list.includes(e)) list.push(e);
+    return list.length ? list : undefined;
+  };
   if (name === "memory_surface") {
     const query = String(args.query ?? "").trim();
     if (!query) return { isError: true, text: "query 不能为空" };
     const roots = Array.isArray(args.root) && args.root.length ? args.root : DEFAULT_ROOTS;
+    const exclude = mergeExclude(args.exclude);
     const r = search({
       roots,
       keywords: query.split(/[,，]/).map(s => s.trim()).filter(Boolean),
       limit: Number(args.limit) || 10,
       detail: Boolean(args.detail),
+      exclude,
     });
     let text = `命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
     for (const x of r.results) {
@@ -77,7 +88,7 @@ function toolCall(name, args) {
   }
   if (name === "memory_doctor") {
     const roots = Array.isArray(args.root) && args.root.length ? args.root : DEFAULT_ROOTS;
-    const { count, report } = runDoctor(roots);
+    const { count, report } = runDoctor(roots, mergeExclude(args.exclude));
     if (report.length === 0) return { text: `语料 ${count} 篇 · 体检通过，无警示项` };
     return {
       text: `语料 ${count} 篇 · ${report.length} 项警示：\n` +
