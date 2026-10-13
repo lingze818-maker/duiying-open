@@ -1,42 +1,143 @@
 # Duiying · Memory Bank for Human–AI Teams (Open Edition)
 
-> Give everyday human–AI collaboration the feeling of *"it actually remembers me."*
+**English** · [简体中文](README.md)
+
+![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
+
+> **Your memory. Your files. Any AI can read them.**
 >
-> Fully local · zero dependencies · one Node script is the whole engine.
+> Fully local · Zero dependencies · Node 18+
 
 Most people relate to AI not as a lover but as a **teammate**: shipping projects,
-recording decisions, carrying context forward. Nearly every AI frontend shares the
-same amnesia — decisions made last week get re-argued this week.
+recording decisions, carrying context forward. And nearly every AI frontend has
+the same amnesia — the decision you made last week gets re-argued this week.
 
-Duiying treats memory as a **retrieval problem**, not a storage problem: it scans
+Duiying treats memory as a **retrieval problem**, not a storage problem. It scans
 your Markdown memory notes and surfaces *cues* — one line each — for any AI
-frontend (zcode / codex / deepseek harness / your own UI) to inject into context.
+frontend to inject into context.
 
-## Highlights
+**Why not just use another memory system? Because memory shouldn't be locked in.**
+Mem0 puts your memory in their cloud. Letta locks it inside their framework.
+Built-in frontend memory dies when you switch frontends. Duiying's memory is
+**your Markdown files**: open format, on your disk, readable by any frontend —
+zcode, codex, deepseek harness, or a UI you build yourself. Frontends can be
+replaced. They can die. Your memory stays.
 
-- **BM25 + exact-phrase fusion** — CJK handled via character bigrams, no tokenizer needed
-- **Time prior** — recent memories surface naturally; queries like "recently" switch to time-first mode
-- **Associative surfacing** — notes auto-link; one hit pulls in its neighbors ("deployment" recalls March's architecture decision)
-- **Supersede, don't delete** — outdated notes keep a `superseded_by` marker, down-weighted with a pointer to the successor
-- **Silence list** — `suppress` / `suppress_when`: some memories shouldn't come up, but *not surfacing ≠ deleting*
-- **Landmark injection** — one line per cue; 3× the memories in the same token budget
-- **doctor checkup** — `--doctor` audits broken links / near-duplicates / title quality / silenced list
+## What makes it different
 
-**No vector DB, no graph DB, no local models, no API keys.**
-Node ≥ 18 and two scripts.
+| Capability | What it does |
+|---|---|
+| **BM25 + exact-phrase fusion** | CJK handled via character bigrams — no tokenizer needed; whole-phrase hits score separately |
+| **Time prior** | Recent memories surface naturally; queries like "recently" switch to time-first mode |
+| **Associative surfacing** | Notes auto-link; one hit pulls its neighbors in — "deployment" recalls March's architecture decision |
+| **Supersede, don't delete** | Outdated notes keep a `superseded_by` marker — down-weighted, with a pointer to the successor |
+| **Silence list** | `suppress` / `suppress_when` — some memories shouldn't come up, but *not surfacing ≠ deleting* |
+| **Landmark injection** | One line per cue — the same token budget carries more memories |
+| **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |
+| **doctor checkup** | `--doctor` audits broken links / near-duplicates / title quality / silenced list — reports, never silently fixes |
+
+**No vector database. No graph database. No local models. No API keys.**
+Node 18+ and two scripts.
+
+> **Honest scope**: the engine is designed for **personal memory banks — dozens
+> to a few thousand Markdown notes**. Every query does a full scan plus the
+> association graph. Thousands of notes run in milliseconds to seconds; going
+> beyond that needs incremental indexing, which is outside the "personal memory"
+> scope on purpose.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/lingze818-maker/duiying-open.git
 cd duiying-open
-node engine/surface.mjs "deployment,rollback" --root examples/partner-xiaolin --json
+
+# A fully fictional sample bank: three months with an AI teammate named Xiaolin
+node engine/surface.mjs "deployment,rollback" --root examples/partner-xiaolin --detail
 ```
 
-Feed `results` into your AI's system prompt as contextual cues. Done — memory.
+For programmatic use (the integration point for any frontend):
 
-See the [Chinese README](README.md) for the full design story, the philosophy
-(*surface cues, never rewrite memory*), and the competitor study.
+```bash
+node engine/surface.mjs "deployment" --root ./my-memory --json
+```
+
+```json
+{
+  "engine": "duiying-open/0.2",
+  "query": ["deployment"],
+  "hint": "Unless the user asks or it is naturally relevant, do not recite these memories.",
+  "results": [
+    { "path": "decisions.md", "title": "Project decisions", "date": "2026-04-01",
+      "score": 12.3, "links": ["meetings.md"], "note": "Superseded — see new-plan.md" }
+  ]
+}
+```
+
+Feed `results` into your AI's system prompt as contextual cues. That's it — memory.
+
+## Frontend integration
+
+Four routes — see [docs/接入契约.md](docs/接入契约.md) (Chinese; schemas are universal):
+
+- **CLI direct call** (agent environments like zcode / codex / deepseek harness):
+  wrap `node engine/surface.mjs "$query" --root <bank> --json` in a tool definition
+- **MCP server** (zcode / claude-family / any MCP host): run `node mcp/server.mjs`
+  (stdio), add one entry to your host config, and get `memory_surface` +
+  `memory_doctor` tools
+- **Embed in Node**: `import { tokenize, buildStats, bm25, buildLinks, spread }
+  from "./engine/lib.mjs"` — pure functions, no IO, compose freely
+- **Entry states** in note frontmatter:
+
+```markdown
+---
+superseded_by: new-plan.md   # down-weighted, kept, annotated
+suppress: true               # never surfaces (file stays untouched)
+suppress_when: [layoffs]     # silent only when the query matches
+---
+```
+
+## How a memory bank grows
+
+No migration needed — **it's just Markdown files**. Loose conventions:
+
+- File names carry meaning (`decisions.md`, `meetings-2026-04.md`)
+- The first `# heading` becomes the landmark
+- Add frontmatter only when you need state control
+
+Run a checkup occasionally:
+
+```bash
+node engine/surface.mjs --doctor --root ./my-memory
+```
+
+## Philosophy
+
+**Surface cues. Never rewrite memory.**
+
+Retrieval results never rewrite, delete, or adjudicate a memory. Through
+2025–2026 the leading memory systems converged on the same principle —
+Mem0 v3 moved to ADD-only, Graphiti marks facts invalidated instead of
+deleting them: *the memory corpus is sacred; the intelligence lives in the
+retrieval layer.* Duiying was built on that ground from day one.
+
+Why take the retrieval layer seriously at all? Because "it actually remembers
+me" is never a storage problem — it is a **recollection** problem: association,
+recency, and the tact of what to surface when. All of it is plain algorithms;
+none of it requires a model.
+
+## Docs
+
+- [Competitor study: eight open-source memory systems × five questions](docs/竞品调研-2026-10.md) (Chinese)
+- [Frontend integration contract](docs/接入契约.md) (Chinese)
+- [Sample corpus guide](examples/partner-xiaolin/README.md) (Chinese; the corpus itself is language-agnostic)
+
+## Roadmap
+
+- [x] v0.2 batch 1: BM25 fusion / time prior / associative diffusion / landmark injection / injection hint
+- [x] v0.2 batch 2: supersede markers / silence list / doctor checkup
+- [ ] Batch 3 (under evaluation): idle-time LLM candidate extraction (human-confirmed) / stable profile layer
+- [ ] Auto-generated MCP contract docs / agent-skill distribution
+- [ ] Live demo GIF
 
 ## License
 

@@ -1,5 +1,7 @@
 # 对影 · 人机搭档记忆库（开源版）
 
+简体中文 · **English** ([README.en.md](README.en.md))
+
 ![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
 
 > **你的记忆，你的文件，任何 AI 都能读。**
