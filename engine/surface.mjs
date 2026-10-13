@@ -59,8 +59,7 @@ const result = search({
 if (AS_JSON) {
   console.log(JSON.stringify({ engine: "duiying-open/0.2", query: keywords, ...result }, null, 2));
 } else {
-  const now = new Date().toLocaleString("zh-CN", { hour12: false });
-  let md = `# 记忆上浮 · ${now}\n\n`;
+  let md = `# 记忆上浮 · ${result.time.line}\n\n`;
   md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v0.2(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""})\n`;
   md += `命中文件: ${result.total} · 展示 top ${result.results.length}\n\n`;
   md += `> ${result.hint}\n\n`;

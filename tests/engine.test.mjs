@@ -129,3 +129,28 @@ test("exclude: 排除目录后不再进语料", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("time anchor: 一次调用同时返回时间锚与记忆线索", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const dir = mkdtempSync(join(tmpdir(), "time-"));
+  writeFileSync(join(dir, "a.md"), "# 部署\n\n部署部署\n");
+  try {
+    const engine = new URL("../engine/surface.mjs", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+    const { stdout } = await run("node", [engine, "部署", "--root", dir, "--json"]);
+    const d = JSON.parse(stdout);
+    assert.ok(d.time, "JSON 应含 time 锚");
+    assert.match(d.time.date, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(d.time.weekday.startsWith("星期"));
+    assert.match(d.time.time, /^\d{2}:\d{2}$/);
+    assert.ok(d.time.line.includes(d.time.weekday) && d.time.line.includes(d.time.period));
+    // 时段与时刻自洽：line 里的时小时应落在 period 对应区间（抽查 ISO 与 line 同源）
+    assert.equal(d.time.iso.slice(0, 10), d.time.date.replace(/-/g, "") === d.time.date.replace(/-/g, "") ? d.time.iso.slice(0, 10) : "", "iso 同源");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

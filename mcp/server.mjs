@@ -76,7 +76,7 @@ function toolCall(name, args) {
       detail: Boolean(args.detail),
       exclude,
     });
-    let text = `命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
+    let text = `当前：${r.time.line}\n命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
     for (const x of r.results) {
       text += `\n- [${x.date}] ${x.title} —— ${x.path} (相关度 ${x.score})`;
       if (x.links.length) text += `\n  关联: ${x.links.join(", ")}`;

@@ -55,6 +55,27 @@ function hitLine(content, keywords) {
   return null;
 }
 
+/** 时间锚：一次调用同时给出"现在"，省掉 agent 单独查时间的一轮注入。 */
+export function timeAnchor(nowMs) {
+  const d = new Date(nowMs);
+  const iso = d.toISOString();
+  const weekday = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][d.getDay()];
+  const hh = d.getHours();
+  const period =
+    hh < 5 ? "凌晨" : hh < 8 ? "清晨" : hh < 11 ? "上午" :
+    hh < 13 ? "中午" : hh < 17 ? "下午" : hh < 19 ? "傍晚" :
+    hh < 23 ? "晚上" : "深夜";
+  const pad = n => String(n).padStart(2, "0");
+  return {
+    iso,
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    weekday,
+    time: `${pad(hh)}:${pad(d.getMinutes())}`,
+    period,
+    line: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${weekday} ${period} ${pad(hh)}:${pad(d.getMinutes())}`,
+  };
+}
+
 /**
  * 检索主入口。
  * @param {object} opts
@@ -132,6 +153,7 @@ export function search(opts) {
   const fmtDate = d => d.mtime.toISOString().slice(0, 10);
 
   return {
+    time: timeAnchor(nowMs),
     total: pool.length,
     hint: "除非对方问起或自然相关，不要主动罗列这些记忆。",
     results: top.map(r => {
