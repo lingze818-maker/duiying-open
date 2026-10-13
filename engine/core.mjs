@@ -104,20 +104,26 @@ export function search(opts) {
 
   const scored = docs.map((d, idx) => {
     const bm = bm25(qTokens, d, stats);
-    let phrase = 0;
+    let phrase = 0, title = 0;
     for (const kw of keywords) {
       const kl = kw.toLowerCase();
       if (kl.length < 2) continue;
-      if (d.base.includes(kl) || d.title.toLowerCase().includes(kl)) phrase += 1.0;
+      // 标题路（主题性）：整串命中文件名或首个 # 标题——文档"是关于什么"的强信号
+      if (d.base.includes(kl) || d.title.toLowerCase().includes(kl)) title += 1.0;
+      // 正文路：整串出现次数（封顶防刷屏）
       const m = d.content.toLowerCase().split(kl).length - 1;
       if (m > 0) phrase += Math.min(m, 5) * 0.4;
     }
-    return { d, idx, score: 0, _bm: bm, _phrase: phrase };
+    return { d, idx, score: 0, _bm: bm, _phrase: phrase, _title: title };
   });
   const maxBm = Math.max(1e-9, ...scored.map(r => r._bm));
   const maxPh = Math.max(1e-9, ...scored.map(r => r._phrase));
+  const maxTi = Math.max(1e-9, ...scored.map(r => r._title));
   for (const r of scored) {
-    r.score = ((r._bm / maxBm) * 2.0 + (r._phrase / maxPh) * 1.2) * timeBoost(r.d.mtime.getTime(), nowMs, timeMode);
+    // 融合权重（10-14 调优）：标题整串×2.2（主题性最优先）> BM25 词频×1.5 > 正文短语×1.0
+    // ——多库联合实测：防"流水日志（词频密集）压过主题文档（标题命中）"
+    r.score = ((r._title / maxTi) * 2.2 + (r._bm / maxBm) * 1.5 + (r._phrase / maxPh) * 1.0)
+      * timeBoost(r.d.mtime.getTime(), nowMs, timeMode);
     if (r.score <= 0.01) r.score = 0;
   }
 
