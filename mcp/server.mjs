@@ -119,13 +119,16 @@ function send(msg) {
 
 function handleMessage(line) {
   let msg;
-  try { msg = JSON.parse(line); } catch { return; }
+  try { msg = JSON.parse(line); } catch {
+    send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } });
+    return;
+  }
   const { id, method, params } = msg;
   if (method === "initialize") {
     send({
       jsonrpc: "2.0", id,
       result: {
-        protocolVersion: params?.protocolVersion || "2024-11-05",
+        protocolVersion: "2024-11-05", // 固定回本 server 支持的版本，协商由宿主决定
         capabilities: { tools: {} },
         serverInfo: { name: "duiying-memory", version: VERSION },
       },

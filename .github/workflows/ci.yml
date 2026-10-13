@@ -21,30 +21,32 @@ jobs:
         run: node --test tests/engine.test.mjs tests/state.test.mjs
       - name: CLI 冒烟（示例语料 + JSON 契约）
         run: |
-          node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --json | python3 -c "
-          import json, sys
-          d = json.load(sys.stdin)
-          assert d['engine'].startswith('duiying-open'), d['engine']
-          assert d['total'] >= 2, d['total']
-          assert 'hint' in d
-          print('CLI JSON 契约 OK ·', d['total'], 'hits')
-          "
+          node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --json | node -e "
+          let raw='';
+          process.stdin.on('data',c=>raw+=c).on('end',()=>{
+            const d = JSON.parse(raw);
+            if (!d.engine.startsWith('duiying-open')) throw new Error('engine: '+d.engine);
+            if (!(d.total >= 2)) throw new Error('total: '+d.total);
+            if (!('hint' in d)) throw new Error('no hint');
+            console.log('CLI JSON 契约 OK ·', d.total, 'hits');
+          });"
       - name: MCP 协议冒烟（initialize + tools/call）
         run: |
           printf '%s\n%s\n%s\n' \
             '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' \
             '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
             '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memory_surface","arguments":{"query":"部署","root":["examples/partner-xiaolin"]}}}' \
-            | node mcp/server.mjs 2>/dev/null | python3 -c "
-          import json, sys
-          msgs = {m['id']: m for m in map(json.loads, sys.stdin)}
-          assert msgs[1]['result']['serverInfo']['name'] == 'duiying-memory'
-          names = [t['name'] for t in msgs[2]['result']['tools']]
-          assert 'memory_surface' in names and 'memory_doctor' in names, names
-          text = msgs[3]['result']['content'][0]['text']
-          assert '除非对方问起' in text
-          print('MCP 协议 OK ·', names)
-          "
+            | node mcp/server.mjs 2>/dev/null | node -e "
+          let raw='';
+          process.stdin.on('data',c=>raw+=c).on('end',()=>{
+            const msgs = {};
+            for (const line of raw.trim().split('\n')) { const m = JSON.parse(line); msgs[m.id] = m; }
+            if (msgs[1].result.serverInfo.name !== 'duiying-memory') throw new Error('serverInfo');
+            const names = msgs[2].result.tools.map(t => t.name);
+            if (!names.includes('memory_surface') || !names.includes('memory_doctor')) throw new Error('tools: '+names);
+            if (!msgs[3].result.content[0].text.includes('除非对方问起')) throw new Error('hint text');
+            console.log('MCP 协议 OK ·', names.join(', '));
+          });"
 
   audit:
     runs-on: ubuntu-latest
