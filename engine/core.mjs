@@ -33,7 +33,7 @@ function collectDocs(roots, skip) {
       const tf = new Map();
       for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
       docs.push({
-        rel: file.split(path.sep).join("/").replace(rootFwd + "/", ""),
+        rel: path.resolve(file).split(path.sep).join("/").replace(rootFwd + "/", ""),  // 两侧都 resolve：防相对/绝对不匹配致 rel 带前缀（10-15 坏链误报根因）
         base: path.basename(file).toLowerCase(),
         title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
         content, mtime: fs.statSync(file).mtime,
@@ -192,7 +192,7 @@ export function runDoctor(roots, exclude) {
       const tf = new Map();
       for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
       docs.push({
-        rel: file.split(path.sep).join("/").replace(path.resolve(root).split(path.sep).join("/") + "/", ""),
+        rel: path.resolve(file).split(path.sep).join("/").replace(path.resolve(root).split(path.sep).join("/") + "/", ""),
         title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
         fm: parseFrontmatter(content),
         tokens: new Set(tf.keys()),
