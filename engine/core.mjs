@@ -4,7 +4,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, parseFrontmatter, applyMemoryState, doctor } from "./lib.mjs";
+import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, parseFrontmatter, applyMemoryState, doctor, expandSynonyms } from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
 
@@ -99,13 +99,14 @@ export function search(opts) {
   const docs = collectDocs(roots, skip);
 
   const stats = buildStats(docs);
-  const qTokens = [...new Set(keywords.flatMap(k => tokenize(k)))];
+  const expanded = expandSynonyms(keywords);
+  const qTokens = [...new Set(expanded.flatMap(k => tokenize(k)))];
   const timeMode = hasTimeWord(keywords.join(" "));
 
   const scored = docs.map((d, idx) => {
     const bm = bm25(qTokens, d, stats);
     let phrase = 0, title = 0;
-    for (const kw of keywords) {
+    for (const kw of expanded) {
       const kl = kw.toLowerCase();
       if (kl.length < 2) continue;
       // 标题路（主题性）：整串命中文件名或首个 # 标题——文档"是关于什么"的强信号

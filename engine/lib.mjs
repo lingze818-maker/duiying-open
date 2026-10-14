@@ -66,7 +66,7 @@ export function hasTimeWord(s) {
  * see-also 建链：两两 bigram 集合重合度（|A∩B| / min(|A|,|B|)）≥ threshold 的记为邻居，
  * 每篇最多 maxLinks 个。返回 links[i] = [[j, sim], ...]。
  */
-export function buildLinks(sets, threshold = 0.14, maxLinks = 3) {
+export function buildLinks(sets, threshold = 0.18, maxLinks = 3) {
   const n = sets.length;
   const links = Array.from({ length: n }, () => []);
   for (let i = 0; i < n; i++) {
@@ -82,8 +82,8 @@ export function buildLinks(sets, threshold = 0.14, maxLinks = 3) {
   return links;
 }
 
-/** 联想扩散：命中分数沿链分发 shareRatio，跑 rounds 轮（HippoRAG PPR 的降维版） */
-export function spread(scores, links, shareRatio = 0.5, rounds = 2) {
+/** 联想扩散：命中分数沿链分发 shareRatio，跑 rounds 轮（HippoRAG PPR 的降维版）。shareRatio 默认 0.35——扩散是联想不是主检索，宁轻勿重（簇状语料实测：过强会整团抬分）。 */
+export function spread(scores, links, shareRatio = 0.35, rounds = 2) {
   for (let r = 0; r < rounds; r++) {
     const delta = new Map();
     scores.forEach((s, i) => {
@@ -97,6 +97,27 @@ export function spread(scores, links, shareRatio = 0.5, rounds = 2) {
 }
 
 // ================= v0.2 批二：记忆状态（取代/沉默/体检） =================
+
+/**
+ * 同义词表（10-13 检索体检发现中文 bigram 盲区：头疼≠头痛，bigram 不交）。
+ * 查询词命中表内任一侧，检索自动扩展到另一侧（双向）。只收强等价对——
+ * 近义/上下位（生病 vs 感冒）不收，防泛化噪音。增量维护：遇到真实漏检再加。
+ */
+export const SYNONYMS = [
+  ["头疼", "头痛"],
+];
+
+/** 查询扩展：返回 keywords + 表内同义变体（去重，保持原词优先）。 */
+export function expandSynonyms(keywords) {
+  const out = [...keywords];
+  for (const kw of keywords) {
+    for (const [a, b] of SYNONYMS) {
+      const variant = kw.includes(a) ? kw.replace(a, b) : kw.includes(b) ? kw.replace(b, a) : null;
+      if (variant && !out.includes(variant)) out.push(variant);
+    }
+  }
+  return out;
+}
 
 /**
  * 解析 md 头部 YAML frontmatter 的零依赖子集：key: value 与 key: [a, b] 数组。

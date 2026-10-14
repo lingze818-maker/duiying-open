@@ -154,3 +154,24 @@ test("time anchor: 一次调用同时返回时间锚与记忆线索", async () =
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("synonyms: 查'头疼'能命中只写'头痛'的语料", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  const dir = mkdtempSync(join(tmpdir(), "syn-"));
+  // 语料只写「头痛」，一个字「疼」都不出现
+  writeFileSync(join(dir, "case.md"), "# 病案\n\n2026-10-03 头痛危机，颈源性，已定位。\n");
+  writeFileSync(join(dir, "noise.md"), "# 无关\n\n部署部署部署\n");
+  try {
+    const engine = new URL("../engine/surface.mjs", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+    const { stdout } = await run("node", [engine, "头疼", "--root", dir, "--json"]);
+    const d = JSON.parse(stdout);
+    assert.ok(d.results.some(r => r.path.includes("case.md")), "同义词扩展应命中只写'头痛'的文档: " + JSON.stringify(d.results.map(r => r.path)));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
