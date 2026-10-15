@@ -82,7 +82,7 @@ export function buildLinks(sets, threshold = 0.18, maxLinks = 3) {
   return links;
 }
 
-/** 联想扩散：命中分数沿链分发 shareRatio，跑 rounds 轮（HippoRAG PPR 的降维版）。shareRatio 默认 0.35——扩散是联想不是主检索，宁轻勿重（簇状语料实测：过强会整团抬分）。 */
+/** 联想扩散：命中分数沿链分发 shareRatio，跑 rounds 轮（图扩散检索的降维版）。shareRatio 默认 0.35——扩散是联想不是主检索，宁轻勿重（簇状语料实测：过强会整团抬分）。 */
 export function spread(scores, links, shareRatio = 0.35, rounds = 2) {
   for (let r = 0; r < rounds; r++) {
     const delta = new Map();

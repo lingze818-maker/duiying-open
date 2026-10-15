@@ -21,11 +21,11 @@ your Markdown memory notes and surfaces *cues* — one line each — for any AI
 frontend to inject into context.
 
 **Why not just use another memory system? Because memory shouldn't be locked in.**
-Mem0 puts your memory in their cloud. Letta locks it inside their framework.
-Built-in frontend memory dies when you switch frontends. Duiying's memory is
-**your Markdown files**: open format, on your disk, readable by any frontend —
-zcode, codex, deepseek harness, or a UI you build yourself. Frontends can be
-replaced. They can die. Your memory stays.
+Many memory solutions keep your memory in their cloud, or lock it inside their
+own framework — and built-in frontend memory dies when you switch. Duiying's
+memory is **your Markdown files**: open format, on your disk, readable by any
+frontend — zcode, codex, deepseek harness, or a UI you build yourself.
+Frontends can be replaced. They can die. Your memory stays.
 
 ## What makes it different
 
@@ -118,11 +118,10 @@ node engine/surface.mjs --doctor --root ./my-memory
 
 **Surface cues. Never rewrite memory.**
 
-Retrieval results never rewrite, delete, or adjudicate a memory. Through
-2025–2026 the leading memory systems converged on the same principle —
-Mem0 v3 moved to ADD-only, Graphiti marks facts invalidated instead of
-deleting them: *the memory corpus is sacred; the intelligence lives in the
-retrieval layer.* Duiying was built on that ground from day one.
+Retrieval results never rewrite, delete, or adjudicate a memory. In recent
+years the leading memory systems have converged on the same principle:
+*the memory corpus is sacred; the intelligence lives in the retrieval
+layer.* Duiying was built on that ground from day one.
 
 Why take the retrieval layer seriously at all? Because "it actually remembers
 me" is never a storage problem — it is a **recollection** problem: association,
@@ -131,7 +130,6 @@ none of it requires a model.
 
 ## Docs
 
-- [Competitor study: eight open-source memory systems × five questions](docs/竞品调研-2026-10.md) (Chinese)
 - [Frontend integration contract](docs/接入契约.md) (Chinese)
 - [Sample corpus guide](examples/partner-xiaolin/README.md) (Chinese; the corpus itself is language-agnostic)
 
