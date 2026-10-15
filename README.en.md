@@ -4,7 +4,7 @@
 
 ![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
 
-> **Your memory. Your files. Any AI can read them.**
+> **Every window you open, the same companion wakes up.**
 >
 > Fully local · Zero dependencies · Node 18+
 

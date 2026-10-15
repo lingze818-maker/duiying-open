@@ -4,7 +4,7 @@
 
 ![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
 
-> **你的记忆，你的文件，任何 AI 都能读。**
+> **让每一个醒来的窗口，都是同一个伙伴。**
 >
 > 纯本地 · 零依赖 · 一个 Node 脚本就是全部。
 
