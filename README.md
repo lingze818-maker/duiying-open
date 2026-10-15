@@ -2,6 +2,11 @@
 
 简体中文 · **English** ([README.en.md](README.en.md))
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
+  <img src="docs/assets/cover-light.png" alt="duiying — 让每一个醒来的窗口，都是同一个伙伴" width="100%">
+</picture>
+
 ![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
 
 > **让每一个醒来的窗口，都是同一个伙伴。**

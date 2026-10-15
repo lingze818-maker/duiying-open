@@ -2,6 +2,11 @@
 
 **English** · [简体中文](README.md)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
+  <img src="docs/assets/cover-light.png" alt="duiying — Your memory. Your files. Any AI can read them." width="100%">
+</picture>
+
 ![CI](https://github.com/lingze818-maker/duiying-open/actions/workflows/ci.yml/badge.svg)
 
 > **Every window you open, the same companion wakes up.**
