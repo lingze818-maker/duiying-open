@@ -62,6 +62,10 @@ cd duiying-open
 node engine/surface.mjs "deployment,rollback" --root examples/partner-xiaolin --detail
 ```
 
+<p align="center">
+  <img src="docs/assets/demo-surface.gif" alt="Live demo: matching memories surface one by one, with associative links and superseded notes visible" width="85%">
+</p>
+
 For programmatic use (the integration point for any frontend):
 
 ```bash

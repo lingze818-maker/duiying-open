@@ -66,6 +66,10 @@ node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail
   > 部署用 Docker Compose 单机版，回滚流程：先停服务 → 还原数据库快照…
 ```
 
+<p align="center">
+  <img src="docs/assets/demo-surface.gif" alt="真机演示：相关记忆逐条上浮，联想与取代附注可见" width="85%">
+</p>
+
 程序化消费（任意前端接入点）：
 
 ```bash
@@ -139,7 +143,7 @@ node engine/surface.mjs --doctor --root ./我的记忆库
 - [x] v0.2 批一：BM25 融合 / 时间先验 / 联想扩散 / 路标注入 / 措辞
 - [x] v0.2 批二：取代标记 / 沉默列表 / doctor 体检
 - [ ] 批三（评估中）：闲时 LLM 提炼候选记忆（人工确认入库）/ 稳定档案层
-- [ ] 真机演示 GIF
+- [x] 真机演示 GIF
 
 ## License
 
