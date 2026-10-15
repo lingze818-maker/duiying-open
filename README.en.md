@@ -51,6 +51,9 @@ Node 18+ and two scripts.
 
 ## Quick start
 
+> **Already have Markdown notes?** No conversion needed —
+> point the engine at your folder ([guide](docs/连接现有记忆库.md)) and search.
+
 ```bash
 git clone https://github.com/lingze818-maker/duiying-open.git
 cd duiying-open

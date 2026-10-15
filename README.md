@@ -46,6 +46,9 @@ Node 18 以上就能跑。
 
 ## 快速开始
 
+> **已经有现成的 Markdown 笔记？** 不需要任何转换——
+> [把目录直接指给引擎](docs/连接现有记忆库.md)，立刻可检索。
+
 ```bash
 git clone https://github.com/lingze818-maker/duiying-open.git
 cd duiying-open
