@@ -45,7 +45,7 @@ if (DOCTOR) {
       const tag = { broken_link: "坏链", near_duplicate: "疑似重复", title_quality: "标题质量", suppressed_list: "沉默中" }[r.type] || r.type;
       console.log(`  [${tag}] ${r.file} — ${r.detail}`);
     }
-    console.log(`\ndoctor 只报不修——是否处理由你决定。`);
+    console.log(`\ndoctor 报告供深度清理参考——日常检索已自动降噪，是否处理由你决定。`);
   }
   process.exit(0);
 }

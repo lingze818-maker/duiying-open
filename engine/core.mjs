@@ -154,7 +154,32 @@ export function search(opts) {
     pool.sort((a, b) => b.score - a.score || b.d.mtime - a.d.mtime);
     for (const [k, v] of n) notes.set(k, v);
   }
-  const top = pool.slice(0, limit);
+  // 检索层自动降噪：文件一个字不动，
+  // 修正全部应用在检索结果上——
+  // ① 近重复：token 重合度 ≥0.75 的结果只保留得分最高的一条
+  const kept = [];
+  for (const r of pool.sort((a, b) => b.score - a.score)) {
+    const tk = new Set(tokenize(r.d.content));
+    const dup = kept.some(k => {
+      const a = k._tok, b2 = tk;
+      let inter = 0;
+      const [s1, s2] = a.size <= b2.size ? [a, b2] : [b2, a];
+      for (const x of s1) if (b2.has(x)) inter++;
+      return inter / Math.max(1, s1.size) >= 0.75;
+    });
+    if (!dup) kept.push({ ...r, _tok: tk });
+  }
+  // ② 坏链附注静默降级：superseded_by 指向不存在文件时不显示附注
+  const allRels = new Set(pool.map(r2 => r2.d.rel));
+  // ③ 超长标题路标截断（显示层，文件不动）
+  for (const r of kept) {
+    if (r.d.title.length > 40) r.d.title = r.d.title.slice(0, 39) + '…';
+    if (r.note && r.note.includes('见 ') ) {
+      const target = r.note.split('见 ')[1];
+      if (target && !allRels.has(target.trim())) r.note = undefined;
+    }
+  }
+  const top = kept.slice(0, limit);
 
   const linksOf = r => (links ? (links[r.idx] || []).map(([j]) => docs[j].rel) : []);
   const fmtDate = d => d.mtime.toISOString().slice(0, 10);

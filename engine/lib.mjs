@@ -176,7 +176,7 @@ export function applyMemoryState(docs, opts = {}) {
 }
 
 /**
- * ⑧ doctor 体检——纯规则无 LLM，只报不修（修不修由人决定）。
+ * ⑧ doctor 体检——纯规则无 LLM；报告供人工深度清理，检索层另自动应用安全降噪。
  * docs: [{rel, title, fm, tokens: Set}] → 报告数组 [{type, file, detail}]
  */
 export function doctor(docs) {
