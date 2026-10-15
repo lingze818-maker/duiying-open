@@ -32,6 +32,8 @@ const FORBIDDEN = [
   [/packupandgo|提桶跑路/, "私有工程代号"],
   [/socks5h:\/\/127\.0\.0\.1/, "私有代理配置"],
   [/git credential fill/, "私有凭据获取方式"],
+  // 舆情红线（灵泽 10-15 令）：公开项目不碰人机恋话题
+  [/恋人|lover|情侣|romantic/i, "舆情红线:人机恋表述"],
 ];
 
 const hits = [];
