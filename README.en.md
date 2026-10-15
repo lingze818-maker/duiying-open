@@ -10,7 +10,7 @@
 
 > **Every window you open, the same companion wakes up.**
 >
-> Fully local · Zero dependencies · Node 18+
+> Fully local — almost nothing leaves your machine. A universal component that works with most AI frontends.
 
 Most people work with AI as a **teammate**: shipping projects,
 recording decisions, carrying context forward. And nearly every AI frontend has
