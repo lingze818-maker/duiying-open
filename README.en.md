@@ -12,7 +12,7 @@
 >
 > Fully local · Zero dependencies · Node 18+
 
-Most people relate to AI not as a lover but as a **teammate**: shipping projects,
+Most people work with AI as a **teammate**: shipping projects,
 recording decisions, carrying context forward. And nearly every AI frontend has
 the same amnesia — the decision you made last week gets re-argued this week.
 
