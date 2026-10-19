@@ -13,6 +13,7 @@
  * 任何异常静默 exit 0——钩子永远不阻塞对话。
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -36,14 +37,22 @@ async function main() {
   prompt = prompt.trim();
   if (!prompt) return; // 无话可浮，空输出
 
-  // 语料根：环境变量优先（分号分隔），缺省 = zcode 记忆库 + dig
-  const roots = (process.env.DUIYING_HOOK_ROOTS || process.env.DUIYING_HOOK_ROOTS_FALLBACK ||
-    "D:/Users/那刻夏zcode/.zcode/memory;D:/Users/那刻夏zcode/dig")
+  // 语料根解析（优先级）：环境变量 DUIYING_HOOK_ROOTS > 家目录 .duiying-hook-roots.json > 无（静默跳过）
+  // 本机路径永不硬编码在此脚本里——公开仓零本机信息。
+  let roots = (process.env.DUIYING_HOOK_ROOTS || "")
     .split(";").map(s => s.trim()).filter(Boolean);
-  // 排除目录：环境变量（逗号分隔）优先；缺省排除常见蒸馏/清洗目录（防工作区产物污染路标）
-  const exclude = (process.env.DUIYING_HOOK_EXCLUDE ||
-    "源2-提取,清洗批次,蒸馏数据")
+  let exclude = (process.env.DUIYING_HOOK_EXCLUDE || "")
     .split(",").map(s => s.trim()).filter(Boolean);
+  if (!roots.length) {
+    try {
+      const localCfg = JSON.parse(fs.readFileSync(
+        path.join(os.homedir(), ".duiying-hook-roots.json"), "utf8"));
+      if (Array.isArray(localCfg.roots)) roots = localCfg.roots.map(s => String(s).trim()).filter(Boolean);
+      if (Array.isArray(localCfg.exclude)) exclude = localCfg.exclude.map(s => String(s).trim()).filter(Boolean);
+    } catch { /* 无本机配置：静默跳过 */ }
+  }
+  if (!roots.length) return;
+  if (!exclude.length) exclude = ["源2-提取", "清洗批次", "蒸馏数据"]; // 常见工作区产物目录名（可被上述配置覆盖）
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
   const { search } = await import(coreUrl);
