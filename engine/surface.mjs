@@ -70,7 +70,12 @@ if (AS_JSON) {
     if (r.excerpt) md += `  > ${r.excerpt}\n`;
   }
   md += `\n—— 只浮线索,不替记忆。读与判断,是使用者自己的事。\n`;
-  fs.writeFileSync(outPath || "surface.md", md, "utf8");
   console.log(md);
+  if (outPath) {
+    fs.writeFileSync(outPath, md, "utf8");
+    console.log(`(已写入 ${outPath})`);
+  } else {
+    console.error("(提示：加 --out <文件> 可把本结果存为 Markdown；缺省只打印，避免污染工作目录)");
+  }
   if (result.total > result.results.length) console.log(`(其余 ${result.total - result.results.length} 个命中未展示,关键词更具体可收敛)`);
 }
