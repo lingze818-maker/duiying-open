@@ -20,6 +20,14 @@ Duiying treats memory as a **retrieval problem**, not a storage problem. It scan
 your Markdown memory notes and surfaces *cues* — one line each — for any AI
 frontend to inject into context.
 
+**Surfacing can be fully passive.** Once MCP is connected, the lightest setup is
+one line in your AI's system prompt — "search first, then answer" — and it flips
+through your memory before speaking. Frontends with message hooks (like Claude
+Code) can inject cues automatically every turn with one pipeline, zero explicit
+calls. A self-built UI can embed retrieval server-side and weave memory into
+every response. Three depths, each with a wiring diagram in the
+[integration contract](docs/接入契约.md).
+
 **Why not just use another memory system? Because memory shouldn't be locked in.**
 Many memory solutions keep your memory in their cloud, or lock it inside their
 own framework — and built-in frontend memory dies when you switch. Duiying's
