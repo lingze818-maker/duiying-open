@@ -39,6 +39,7 @@ Frontends can be replaced. They can die. Your memory stays.
 | **Landmark injection** | One line per cue — the same token budget carries more memories |
 | **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |
 | **doctor checkup** | `--doctor` audits broken links / near-duplicates / title quality / silenced list — reports, never silently fixes |
+| **Multi-frontend write** | Any MCP-connected frontend can contribute: summaries authored by the writer, content inlined or path-referenced, event/channel tags — switching frontends is just a breath |
 
 **No vector database. No graph database. No local models. No API keys.**
 Node 18+ and two scripts.

@@ -21,6 +21,7 @@
  */
 import path from "node:path";
 import { search, runDoctor } from "../engine/core.mjs";
+import { ingest } from "../engine/ingest.mjs";
 
 const VERSION = "0.2.0";
 const DEFAULT_ROOTS = (process.env.DUIYING_ROOTS || process.cwd())
@@ -54,6 +55,22 @@ const TOOLS = [
         root: { type: "array", items: { type: "string" }, description: "可选：覆盖默认语料根目录" },
         exclude: { type: "array", items: { type: "string" }, description: "可选：追加排除的目录名" },
       },
+    },
+  },
+  {
+    name: "memory_ingest",
+    description: "向共享记忆库贡献一条记忆（多前端写入协议）。摘要由写入方负责（谁灌的谁写）；原文两种形态二选一：content 落盘灌库，或 source_path 路径标记（原文留原处，库只落薄条目）。channel=来源前端标识（如 zcode/codex/qq-bridge），event=内容事件标签（decision/meeting/insight…自由打）。写入后其他前端即可检索到。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "记忆摘要（必填，写入方负责；超 40 字自动截标题、全文保留正文）" },
+        channel: { type: "string", description: "来源前端标识（必填，如 zcode / codex / qq-bridge）" },
+        content: { type: "string", description: "模式 A：原文全文落盘灌库" },
+        source_path: { type: "string", description: "模式 B：原文路径标记（原文留原处，库只落薄条目）" },
+        event: { type: "string", description: "可选：事件标签（decision / meeting / insight / milestone…自由打）" },
+        root: { type: "array", items: { type: "string" }, description: "可选：覆盖默认语料根目录（单值数组）" },
+      },
+      required: ["summary", "channel"],
     },
   },
 ];
@@ -95,6 +112,21 @@ function toolCall(name, args) {
         report.map(r => `- [${r.type}] ${r.file} — ${r.detail}`).join("\n") +
         `\n（doctor 只报不修）`,
     };
+  }
+  if (name === "memory_ingest") {
+    const root = Array.isArray(args.root) && args.root.length ? args.root[0] : DEFAULT_ROOTS[0];
+    const r = ingest({
+      root,
+      channel: args.channel,
+      summary: args.summary,
+      content: args.content,
+      source_path: args.source_path,
+      event: args.event,
+    });
+    if (r.error) return { isError: true, text: r.error };
+    let text = `✓ 已入库（${r.mode === "inline" ? "落盘灌库" : "路径标记"}）：${path.relative(root, r.file)}\n其他前端连此 MCP 即可检索到这条记忆。`;
+    for (const w of r.warnings) text += `\n⚠️ ${w}`;
+    return { text };
   }
   return { isError: true, text: `未知工具: ${name}` };
 }
