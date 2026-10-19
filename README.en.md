@@ -95,9 +95,14 @@ Four routes — see [docs/接入契约.md](docs/接入契约.md) (Chinese; schem
   wrap `node engine/surface.mjs "$query" --root <bank> --json` in a tool definition
 - **MCP server** (zcode / claude-family / any MCP host): run `node mcp/server.mjs`
   (stdio), add one entry to your host config, and get `memory_surface` +
-  `memory_doctor` tools
+  `memory_doctor` + `memory_ingest` tools — read the whole bank *and* contribute
+  to it
 - **Embed in Node**: `import { tokenize, buildStats, bm25, buildLinks, spread }
   from "./engine/lib.mjs"` — pure functions, no IO, compose freely
+- **How surfacing triggers**: MCP tools are passive — the engine answers whenever
+  asked. Three automation levels, from a one-line prompt convention to
+  message-injection pipelines, are documented in the
+  [integration contract](docs/接入契约.md) (Chinese; schemas are universal)
 - **Entry states** in note frontmatter:
 
 ```markdown

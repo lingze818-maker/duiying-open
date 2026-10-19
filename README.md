@@ -96,8 +96,9 @@ node engine/surface.mjs "部署" --root ./我的记忆库 --json
 详见 [docs/接入契约.md](docs/接入契约.md)。四条路任选：
 
 - **CLI 直调**（zcode / codex / deepseek harness 等 agent 环境）：工具定义里包一层 `node engine/surface.mjs "$query" --root <库> --json`；
-- **MCP server**（zcode / claude 系 / 任何 MCP 宿主）：`node mcp/server.mjs` 起 stdio 服务，宿主配置一行获得 `memory_surface` / `memory_doctor` 工具；
+- **MCP server**（zcode / claude 系 / 任何 MCP 宿主）：`node mcp/server.mjs` 起 stdio 服务，宿主配置一行获得 `memory_surface` / `memory_doctor` / `memory_ingest` 工具——读全库，也能往里留痕；
 - **Node 程序内嵌**：`import { tokenize, buildStats, bm25, buildLinks, spread } from "./engine/lib.mjs"`——纯函数无 IO，怎么编排都行；
+- **上浮的触发层级**：MCP 工具是被动的——引擎保证"任何时候被问到都答得好"，自动化的程度由前端决定（系统提示一句话约定 → 消息注入管线 → 服务端内建），三级详见 [docs/接入契约.md](docs/接入契约.md)「上浮的触发层级」；
 - **记忆条目状态**：在 md 头部写 frontmatter 即生效——
 
 ```markdown
