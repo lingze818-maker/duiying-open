@@ -1,4 +1,4 @@
-#!/usr/bin/node
+#!/usr/bin/env node
 /**
  * engine/ingest.mjs — 多前端写入协议（memory_ingest 的纯函数层）
  *
@@ -14,6 +14,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+
+/** POSIX 上 path.isAbsolute 不认 Windows 盘符，会把 D:/笔记.md 误判成相对路径。 */
+function isAbsolutePath(p) {
+  if (path.isAbsolute(p)) return true;
+  return /^[A-Za-z]:[\\/]/.test(p) || p.startsWith("\\\\");
+}
 
 /** 路径段安全化：只保留中英文、数字、- _ 空格；其余压成 -；防 ../ 穿越 */
 function safeSegment(s, max = 40) {
@@ -54,7 +60,11 @@ export function ingest(p) {
   const summary = String(p.summary ?? "").trim();
   if (!summary) return { error: "summary 不能为空——摘要由写入方负责（谁灌的谁写）" };
   const content = typeof p.content === "string" ? p.content.trim() : "";
-  const sourcePath = String(p.source_path ?? "").trim();
+  let sourcePath = String(p.source_path ?? "").trim();
+  if (/[\r\n]/.test(sourcePath)) {
+    warnings.push("source_path 含换行，已压成空格后写入，避免撑破 frontmatter");
+    sourcePath = sourcePath.replace(/[\r\n]+/g, " ").trim();
+  }
   if (!content && !sourcePath) return { error: "content 与 source_path 至少给一个（落盘灌库或路径标记）" };
   if (content && sourcePath) return { error: "content 与 source_path 二选一，不混用" };
 
@@ -62,7 +72,7 @@ export function ingest(p) {
   const date = nowIso.slice(0, 10);
   const stamp = nowIso.slice(0, 19).replace("T", " ");
 
-  if (sourcePath && !path.isAbsolute(sourcePath)) warnings.push("source_path 为相对路径——按写入方工作区语义记录，未做存在性校验");
+  if (sourcePath && !isAbsolutePath(sourcePath)) warnings.push("source_path 为相对路径——按写入方工作区语义记录，未做存在性校验");
   else if (sourcePath && !fs.existsSync(sourcePath)) warnings.push(`source_path 当前不存在：${sourcePath}（仍按标记写入，确认路径拼写）`);
 
   const dir = path.join(root, "ingest", channel);
@@ -94,7 +104,14 @@ if (process.argv[1] && process.argv[1].replace(/\\/g, "/").endsWith("engine/inge
   const argv = process.argv.slice(2);
   const pick = k => { const i = argv.indexOf(k); return i > -1 ? argv[i + 1] : undefined; };
   let payload;
-  if (argv.includes("--json")) payload = JSON.parse(pick("--json"));
+  if (argv.includes("--json")) {
+    try { payload = JSON.parse(pick("--json")); }
+    catch (e) { console.error(`✗ --json 不是合法 JSON：${e.message}`); process.exit(1); }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      console.error("✗ --json 需要一个对象");
+      process.exit(1);
+    }
+  }
   else payload = {
     root: pick("--root"),
     channel: pick("--channel"),

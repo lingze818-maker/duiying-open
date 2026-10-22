@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread } from "../engine/lib.mjs";
+import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, overlapRatio, formatLocalDate } from "../engine/lib.mjs";
 
 // ---- tokenize ----
 test("tokenize: CJK 切 bigram", () => {
@@ -56,6 +56,20 @@ test("hasTimeWord: 识别时间词", () => {
   assert.ok(hasTimeWord("最近的项目"));
   assert.ok(hasTimeWord("上周开会"));
   assert.equal(hasTimeWord("部署方案"), false);
+  assert.ok(hasTimeWord("what changed recently"));
+  assert.ok(hasTimeWord("last week"));
+  assert.equal(hasTimeWord("deployment"), false);
+});
+test("formatLocalDate: 本地日历日", () => {
+  assert.equal(formatLocalDate(new Date(2026, 0, 2, 1, 30, 0)), "2026-01-02");
+});
+test("overlapRatio: 短集合去比对长集合，而不是跟自己比", () => {
+  const big = new Set(["部署", "回滚", "快照", "停服"]);
+  const other = new Set(["樱花"]);
+  assert.equal(overlapRatio(big, other), 0);
+  assert.equal(overlapRatio(other, big), 0);
+  assert.equal(overlapRatio(new Set(), big), 0);
+  assert.ok(overlapRatio(big, new Set(["部署", "回滚", "快照"])) >= 0.75);
 });
 
 // ---- 建链与扩散 ----
@@ -148,8 +162,8 @@ test("time anchor: 一次调用同时返回时间锚与记忆线索", async () =
     assert.ok(d.time.weekday.startsWith("星期"));
     assert.match(d.time.time, /^\d{2}:\d{2}$/);
     assert.ok(d.time.line.includes(d.time.weekday) && d.time.line.includes(d.time.period));
-    // 时段与时刻自洽：line 里的时小时应落在 period 对应区间（抽查 ISO 与 line 同源）
-    assert.equal(d.time.iso.slice(0, 10), d.time.date.replace(/-/g, "") === d.time.date.replace(/-/g, "") ? d.time.iso.slice(0, 10) : "", "iso 同源");
+    assert.ok(d.time.line.startsWith(d.time.date));
+    assert.match(d.time.iso, /^\d{4}-\d{2}-\d{2}T/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

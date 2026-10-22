@@ -10,7 +10,7 @@ Node ≥ 18，无任何 npm 依赖，克隆即开发。
 ## 提交前
 
 ```bash
-node --test tests/engine.test.mjs tests/state.test.mjs   # 全绿
+node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs engine/ingest.test.js   # 全绿
 node scripts/audit.mjs                                    # 脱敏零命中
 ```
 

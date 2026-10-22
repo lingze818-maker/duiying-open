@@ -4,9 +4,14 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, parseFrontmatter, applyMemoryState, doctor, expandSynonyms } from "./lib.mjs";
+import {
+  tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
+  parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
+  overlapRatio, isSuppressed, formatLocalDate,
+} from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
+const NEAR_DUP = 0.75;
 
 function* walk(dir, skip) {
   let entries;
@@ -19,37 +24,52 @@ function* walk(dir, skip) {
   }
 }
 
+function landmarkTitle(content, file, fm) {
+  const titleM = content.match(/^#\s+(.+)$/m);
+  const heading = titleM ? titleM[1].trim() : path.basename(file, ".md");
+  const custom = fm.get("title");
+  return typeof custom === "string" && custom.trim() ? custom.trim() : heading;
+}
+
 /** 语料扫描（search 与 runDoctor 共用）。 */
 function collectDocs(roots, skip) {
   const docs = [];
   for (const root of roots) {
     const rootFwd = path.resolve(root).split(path.sep).join("/");
     for (const file of walk(root, skip)) {
-      if (path.basename(file) === "surface.md") continue;
       let content;
       try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
-      const titleM = content.match(/^#\s+(.+)$/m);
       const tokens = tokenize(content);
       const tf = new Map();
       for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+      const fm = parseFrontmatter(content);
       docs.push({
-        rel: path.resolve(file).split(path.sep).join("/").replace(rootFwd + "/", ""),  // 两侧都 resolve：防相对/绝对不匹配致 rel 带前缀（10-15 坏链误报根因）
+        root: rootFwd,
+        rel: path.resolve(file).split(path.sep).join("/").replace(rootFwd + "/", ""),
         base: path.basename(file).toLowerCase(),
-        title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
+        title: landmarkTitle(content, file, fm),
         content, mtime: fs.statSync(file).mtime,
         tf, len: tokens.length,
-        fm: parseFrontmatter(content),
+        fm,
       });
     }
   }
   return docs;
 }
 
+/** 字面量摘录。查询里的括号、加号等不得进正则。 */
 function hitLine(content, keywords) {
+  const lines = content.split(/\r?\n/);
+  let start = 0;
+  if ((lines[0] || "").replace(/^\uFEFF/, "") === "---") {
+    const close = lines.indexOf("---", 1);
+    if (close !== -1) start = close + 1;
+  }
   for (const kw of keywords) {
-    const re = new RegExp(kw, "gi");
-    for (const line of content.split("\n")) {
-      if (re.test(line)) return line.trim().slice(0, 80);
+    const needle = String(kw).toLowerCase();
+    if (!needle) continue;
+    for (let i = start; i < lines.length; i++) {
+      if (lines[i].toLowerCase().includes(needle)) return lines[i].trim().slice(0, 80);
     }
   }
   return null;
@@ -58,7 +78,6 @@ function hitLine(content, keywords) {
 /** 时间锚：一次调用同时给出"现在"，省掉 agent 单独查时间的一轮注入。 */
 export function timeAnchor(nowMs) {
   const d = new Date(nowMs);
-  const iso = d.toISOString();
   const weekday = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][d.getDay()];
   const hh = d.getHours();
   const period =
@@ -66,14 +85,45 @@ export function timeAnchor(nowMs) {
     hh < 13 ? "中午" : hh < 17 ? "下午" : hh < 19 ? "傍晚" :
     hh < 23 ? "晚上" : "深夜";
   const pad = n => String(n).padStart(2, "0");
+  const date = formatLocalDate(d);
+  const hm = `${pad(hh)}:${pad(d.getMinutes())}`;
   return {
-    iso,
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    iso: d.toISOString(),
+    date,
     weekday,
-    time: `${pad(hh)}:${pad(d.getMinutes())}`,
+    time: hm,
     period,
-    line: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${weekday} ${period} ${pad(hh)}:${pad(d.getMinutes())}`,
+    line: `${date} ${weekday} ${period} ${hm}`,
   };
+}
+
+/** 词面命中在前，纯联想在后；组内再比融合分与新旧。 */
+function rankCompare(a, b) {
+  const group = r => (r.lexical > 0 ? 0 : 1);
+  return group(a) - group(b) || b.score - a.score || b.d.mtime - a.d.mtime;
+}
+
+/**
+ * 近重复只留较新的一条。重合度与 doctor 相同；
+ * 必须拿较小集合去比对另一份，不能跟自己比（否则更短的文档一律像 100% 重复）。
+ */
+function dedupeNear(pool) {
+  const kept = [];
+  for (const r of pool) {
+    const tokens = new Set(r.d.tf.keys());
+    const idx = kept.findIndex(k => overlapRatio(k._tok, tokens) >= NEAR_DUP);
+    const fresh = { ...r, _tok: tokens };
+    if (idx === -1) { kept.push(fresh); continue; }
+    const prev = kept[idx];
+    const newer = r.d.mtime - prev.d.mtime;
+    if (newer > 0 || (newer === 0 && r.score > prev.score)) kept[idx] = fresh;
+  }
+  kept.sort(rankCompare);
+  return kept;
+}
+
+function displayTitle(title) {
+  return title.length > 40 ? title.slice(0, 39) + "…" : title;
 }
 
 /**
@@ -100,6 +150,7 @@ export function search(opts) {
 
   const stats = buildStats(docs);
   const expanded = expandSynonyms(keywords);
+  const silenceQuery = expanded.map(k => k.toLowerCase());
   const qTokens = [...new Set(expanded.flatMap(k => tokenize(k)))];
   const timeMode = hasTimeWord(keywords.join(" "));
 
@@ -109,96 +160,83 @@ export function search(opts) {
     for (const kw of expanded) {
       const kl = kw.toLowerCase();
       if (kl.length < 2) continue;
-      // 标题路（主题性）：整串命中文件名或首个 # 标题——文档"是关于什么"的强信号
       if (d.base.includes(kl) || d.title.toLowerCase().includes(kl)) title += 1.0;
-      // 正文路：整串出现次数（封顶防刷屏）
       const m = d.content.toLowerCase().split(kl).length - 1;
       if (m > 0) phrase += Math.min(m, 5) * 0.4;
     }
-    return { d, idx, score: 0, _bm: bm, _phrase: phrase, _title: title };
+    return { d, idx, score: 0, lexical: 0, _bm: bm, _phrase: phrase, _title: title };
   });
   const maxBm = Math.max(1e-9, ...scored.map(r => r._bm));
   const maxPh = Math.max(1e-9, ...scored.map(r => r._phrase));
   const maxTi = Math.max(1e-9, ...scored.map(r => r._title));
   for (const r of scored) {
-    // 融合权重（10-14 调优）：标题整串×2.2（主题性最优先）> BM25 词频×1.5 > 正文短语×1.0
-    // ——多库联合实测：防"流水日志（词频密集）压过主题文档（标题命中）"
+    // 融合权重：标题整串 ×2.2 > BM25 ×1.5 > 正文短语 ×1.0
     r.score = ((r._title / maxTi) * 2.2 + (r._bm / maxBm) * 1.5 + (r._phrase / maxPh) * 1.0)
       * timeBoost(r.d.mtime.getTime(), nowMs, timeMode);
     if (r.score <= 0.01) r.score = 0;
+    r.lexical = r.score;
   }
+
+  const silenced = new Set(
+    scored.filter(r => isSuppressed(r.d.fm, silenceQuery)).map(r => r.idx),
+  );
 
   let links = null;
   if (useLinks) {
-    links = buildLinks(docs.map(d => new Set(d.tf.keys())));
-    const arr = scored.map(r => r.score);
+    const raw = buildLinks(docs.map(d => new Set(d.tf.keys())));
+    // 沉默条目不扩散、也不作为邻居被带出——浮不上来包括联想链。
+    links = raw.map((row, i) => silenced.has(i) ? [] : row.filter(([j]) => !silenced.has(j)));
+    const arr = scored.map(r => silenced.has(r.idx) ? 0 : r.score);
     spread(arr, links);
     scored.forEach((r, i) => { r.score = arr[i]; });
+  } else {
+    for (const r of scored) if (silenced.has(r.idx)) r.score = 0;
   }
 
-  scored.sort((a, b) => b.score - a.score || b.d.mtime - a.d.mtime);
-  const positives = scored.filter(r => r.score > 0);
+  scored.sort(rankCompare);
+  // 词面命中优先于纯联想：邻居可以跟着上来，但不能压过真正写到查询词的记忆。
+  const positives = scored.filter(r => r.score > 0 && !silenced.has(r.idx));
 
-  // 记忆状态（取代/沉默）
   let pool = positives;
   const notes = new Map();
   if (positives.length) {
     const { kept, notes: n } = applyMemoryState(
-      positives.map(r => ({ rel: r.d.rel, score: r.score, fm: r.d.fm })),
-      { query: keywords },
+      positives.map(r => ({ rel: r.d.rel, score: r.score, fm: r.d.fm, idx: r.idx })),
+      { query: silenceQuery },
     );
-    const keptSet = new Set(kept.map(k => k.rel));
-    const scoreOf = new Map(kept.map(k => [k.rel, k.score]));
-    pool = positives.filter(r => keptSet.has(r.d.rel));
-    for (const r of pool) r.score = scoreOf.get(r.d.rel);
-    pool.sort((a, b) => b.score - a.score || b.d.mtime - a.d.mtime);
+    const scoreOf = new Map(kept.map(k => [k.idx, k.score]));
+    pool = positives.filter(r => scoreOf.has(r.idx));
+    for (const r of pool) r.score = scoreOf.get(r.idx);
+    pool.sort(rankCompare);
     for (const [k, v] of n) notes.set(k, v);
   }
-  // 检索层自动降噪：文件一个字不动，
-  // 修正全部应用在检索结果上——
-  // ① 近重复：token 重合度 ≥0.75 的结果只保留得分最高的一条
-  const kept = [];
-  for (const r of pool.sort((a, b) => b.score - a.score)) {
-    const tk = new Set(tokenize(r.d.content));
-    const dup = kept.some(k => {
-      const a = k._tok, b2 = tk;
-      let inter = 0;
-      const [s1, s2] = a.size <= b2.size ? [a, b2] : [b2, a];
-      for (const x of s1) if (b2.has(x)) inter++;
-      return inter / Math.max(1, s1.size) >= 0.75;
-    });
-    if (!dup) kept.push({ ...r, _tok: tk });
-  }
-  // ② 坏链附注静默降级：superseded_by 指向不存在文件时不显示附注
-  const allRels = new Set(pool.map(r2 => r2.d.rel));
-  // ③ 超长标题路标截断（显示层，文件不动）
-  for (const r of kept) {
-    if (r.d.title.length > 40) r.d.title = r.d.title.slice(0, 39) + '…';
-    if (r.note && r.note.includes('见 ') ) {
-      const target = r.note.split('见 ')[1];
-      if (target && !allRels.has(target.trim())) r.note = undefined;
-    }
-  }
-  const top = kept.slice(0, limit);
 
+  const visible = dedupeNear(pool);
+  const relsByRoot = new Map();
+  for (const d of docs) {
+    if (!relsByRoot.has(d.root)) relsByRoot.set(d.root, new Set());
+    relsByRoot.get(d.root).add(d.rel);
+  }
+  const top = visible.slice(0, limit);
   const linksOf = r => (links ? (links[r.idx] || []).map(([j]) => docs[j].rel) : []);
-  const fmtDate = d => d.mtime.toISOString().slice(0, 10);
 
   return {
     time: timeAnchor(nowMs),
-    total: pool.length,
+    total: visible.length,
     hint: "除非对方问起或自然相关，不要主动罗列这些记忆。",
     results: top.map(r => {
       const out = {
-        path: r.d.rel, title: r.d.title, date: fmtDate(r.d),
+        path: r.d.rel,
+        title: displayTitle(r.d.title),
+        date: formatLocalDate(r.d.mtime),
         score: Math.round(r.score * 10) / 10,
         links: linksOf(r),
       };
-      if (notes.has(r.d.rel)) out.note = notes.get(r.d.rel);
-      if (detail) {
-        const line = hitLine(r.d.content, keywords);
-        out.excerpt = line ?? r.d.title;
+      const sup = r.d.fm.get("superseded_by");
+      if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && notes.has(r.d.rel)) {
+        out.note = notes.get(r.d.rel);
       }
+      if (detail) out.excerpt = hitLine(r.d.content, expanded) ?? displayTitle(r.d.title);
       return out;
     }),
   };
@@ -207,22 +245,12 @@ export function search(opts) {
 /** doctor 体检（--doctor 与 MCP memory_doctor 共用）。 */
 export function runDoctor(roots, exclude) {
   const skip = exclude ? new Set([...SKIP_DIRS, ...exclude]) : SKIP_DIRS;
-  const docs = [];
-  for (const root of roots) {
-    for (const file of walk(root, skip)) {
-      let content;
-      try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
-      const titleM = content.match(/^#\s+(.+)$/m);
-      const tokens = tokenize(content);
-      const tf = new Map();
-      for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
-      docs.push({
-        rel: path.resolve(file).split(path.sep).join("/").replace(path.resolve(root).split(path.sep).join("/") + "/", ""),
-        title: titleM ? titleM[1].trim() : path.basename(file, ".md"),
-        fm: parseFrontmatter(content),
-        tokens: new Set(tf.keys()),
-      });
-    }
-  }
+  const docs = collectDocs(roots, skip).map(d => ({
+    rel: d.rel,
+    root: d.root,
+    title: d.title,
+    fm: d.fm,
+    tokens: new Set(d.tf.keys()),
+  }));
   return { count: docs.length, report: doctor(docs) };
 }

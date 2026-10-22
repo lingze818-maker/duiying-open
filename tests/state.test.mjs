@@ -23,6 +23,10 @@ test("parseFrontmatter: frontmatter 不闭合按正文处理", () => {
   const md = "---\nbroken: [未闭合\n# 正文";
   assert.equal(parseFrontmatter(md).size, 0);
 });
+test("parseFrontmatter: UTF-8 BOM 不挡住头部", () => {
+  const fm = parseFrontmatter("\uFEFF---\nsuppress: true\n---\n# 正文");
+  assert.equal(fm.get("suppress"), "true");
+});
 
 // ---- ⑥ 取代标记：降权 + 附注，不消失 ----
 test("superseded: 被取代条目降权并附注", () => {
@@ -52,9 +56,17 @@ test("suppress_when: 条件沉默——命中指定关键词时才不浮", () =>
     { rel: "敏感.md", score: 9, fm: new Map([["suppress_when", ["裁员"]]]) },
   ];
   const hit = applyMemoryState(docs, { query: ["裁员", "方案"] }).kept;
-  const miss = applyMemoryState(docs, { query: ["方案"] }).kept;
+  const phrase = applyMemoryState(docs, { query: ["公司裁员方案"] }).kept;
+  const miss = applyMemoryState(docs, { query: ["福利方案"] }).kept;
   assert.equal(hit.length, 0, "查询含敏感词→不浮");
+  assert.equal(phrase.length, 0, "整句关键词里含敏感词也要沉默");
   assert.equal(miss.length, 1, "查询不含→正常浮");
+});
+test("suppress: True 与 true 一样整篇沉默", () => {
+  const { kept } = applyMemoryState([
+    { rel: "沉默.md", score: 3, fm: new Map([["suppress", "True"]]) },
+  ]);
+  assert.equal(kept.length, 0);
 });
 
 // ---- ⑧ doctor 体检 ----test

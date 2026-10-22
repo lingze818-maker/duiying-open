@@ -46,11 +46,11 @@ Frontends can be replaced. They can die. Your memory stays.
 | **Silence list** | `suppress` / `suppress_when` — some memories shouldn't come up, but *not surfacing ≠ deleting* |
 | **Landmark injection** | One line per cue — the same token budget carries more memories |
 | **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |
-| **doctor checkup** | `--doctor` audits broken links / near-duplicates / title quality / silenced list — reports, never silently fixes |
+| **doctor checkup** | `--doctor` reports broken links, near-duplicates, title quality, and the silence list. Search already keeps the newest near-duplicate and hides notes for missing targets. Files are never edited |
 | **Multi-frontend write** | Any MCP-connected frontend can contribute: summaries authored by the writer, content inlined or path-referenced, event/channel tags — switching frontends is just a breath |
 
 **No vector database. No graph database. No local models. No API keys.**
-Node 18+ and two scripts.
+Node 18 or newer. Nothing to install.
 
 > **Honest scope**: the engine is designed for **personal memory banks — dozens
 > to a few thousand Markdown notes**. Every query does a full scan plus the
@@ -160,7 +160,7 @@ none of it requires a model.
 - [x] v0.2 batch 2: supersede markers / silence list / doctor checkup
 - [ ] Batch 3 (under evaluation): idle-time LLM candidate extraction (human-confirmed) / stable profile layer
 - [ ] Auto-generated MCP contract docs / agent-skill distribution
-- [ ] Live demo GIF
+- [x] Live demo GIF
 
 ## License
 

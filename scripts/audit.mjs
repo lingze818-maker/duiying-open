@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const SKIP = new Set(["node_modules", ".git", ".venv"]);
-const SCAN_EXT = new Set([".md", ".mjs", ".json", ".html", ".css"]);
+const SCAN_EXT = new Set([".md", ".mjs", ".js", ".json", ".html", ".css"]);
 
 // 禁忌模式：任何命中都说明私有内容泄漏进了公开仓
 const FORBIDDEN = [

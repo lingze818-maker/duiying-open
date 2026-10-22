@@ -75,22 +75,39 @@ const TOOLS = [
   },
 ];
 
+function asList(v, splitRe = /[;；]/) {
+  if (typeof v === "string") return v.split(splitRe).map(s => s.trim()).filter(Boolean);
+  if (Array.isArray(v)) return v.flatMap(item => asList(String(item), splitRe));
+  return [];
+}
+
+function rootsOf(root) {
+  const list = asList(root);
+  return list.length ? list : DEFAULT_ROOTS;
+}
+
+function asLimit(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 10;
+  return Math.floor(n);
+}
+
 function toolCall(name, args) {
   const mergeExclude = extra => {
     const list = [...DEFAULT_EXCLUDE];
-    if (Array.isArray(extra)) for (const e of extra) if (e && !list.includes(e)) list.push(e);
+    for (const e of asList(extra, /[;；,，]/)) if (!list.includes(e)) list.push(e);
     return list.length ? list : undefined;
   };
   if (name === "memory_surface") {
     const query = String(args.query ?? "").trim();
     if (!query) return { isError: true, text: "query 不能为空" };
-    const roots = Array.isArray(args.root) && args.root.length ? args.root : DEFAULT_ROOTS;
+    const roots = rootsOf(args.root);
     const exclude = mergeExclude(args.exclude);
     const r = search({
       roots,
       keywords: query.split(/[,，]/).map(s => s.trim()).filter(Boolean),
-      limit: Number(args.limit) || 10,
-      detail: Boolean(args.detail),
+      limit: asLimit(args.limit),
+      detail: args.detail === true || args.detail === "true" || args.detail === 1,
       exclude,
     });
     let text = `当前：${r.time.line}\n命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
@@ -100,11 +117,13 @@ function toolCall(name, args) {
       if (x.note) text += `\n  ${x.note}`;
       if (x.excerpt) text += `\n  摘录: ${x.excerpt}`;
     }
-    if (r.results.length === 0) text = "没有命中的记忆。换更具体的关键词，或扩大 root 范围。";
+    if (r.results.length === 0) {
+      text = `当前：${r.time.line}\n没有命中的记忆。换更具体的关键词，或扩大 root 范围。`;
+    }
     return { text };
   }
   if (name === "memory_doctor") {
-    const roots = Array.isArray(args.root) && args.root.length ? args.root : DEFAULT_ROOTS;
+    const roots = rootsOf(args.root);
     const { count, report } = runDoctor(roots, mergeExclude(args.exclude));
     if (report.length === 0) return { text: `语料 ${count} 篇 · 体检通过，无警示项` };
     return {
@@ -114,7 +133,7 @@ function toolCall(name, args) {
     };
   }
   if (name === "memory_ingest") {
-    const root = Array.isArray(args.root) && args.root.length ? args.root[0] : DEFAULT_ROOTS[0];
+    const root = rootsOf(args.root)[0];
     const r = ingest({
       root,
       channel: args.channel,

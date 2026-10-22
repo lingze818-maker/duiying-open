@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: 引擎测试（零依赖，无需 install）
-        run: node --test tests/engine.test.mjs tests/state.test.mjs
+        run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs engine/ingest.test.js
       - name: CLI 冒烟（示例语料 + JSON 契约）
         run: |
           node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --json | node -e "
@@ -43,7 +43,7 @@ jobs:
             for (const line of raw.trim().split('\n')) { const m = JSON.parse(line); msgs[m.id] = m; }
             if (msgs[1].result.serverInfo.name !== 'duiying-memory') throw new Error('serverInfo');
             const names = msgs[2].result.tools.map(t => t.name);
-            if (!names.includes('memory_surface') || !names.includes('memory_doctor')) throw new Error('tools: '+names);
+            if (!names.includes('memory_surface') || !names.includes('memory_doctor') || !names.includes('memory_ingest')) throw new Error('tools: '+names);
             if (!msgs[3].result.content[0].text.includes('除非对方问起')) throw new Error('hint text');
             console.log('MCP 协议 OK ·', names.join(', '));
           });"
