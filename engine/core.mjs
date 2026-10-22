@@ -39,6 +39,7 @@ function collectDocs(roots, skip) {
     for (const file of walk(root, skip)) {
       let content;
       try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
+      if (content.charCodeAt(0) === 0xfeff) content = content.slice(1);
       const tokens = tokenize(content);
       const tf = new Map();
       for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);

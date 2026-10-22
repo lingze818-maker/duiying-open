@@ -16,8 +16,8 @@ node scripts/audit.mjs                                    # 脱敏零命中
 
 ## 约定
 
-- **纯函数进 `engine/lib.mjs`**，编排进 `engine/core.mjs`，IO/CLI 只在
-  `surface.mjs` 与 `mcp/server.mjs`——测试跟着纯函数走
+- **纯函数进 `engine/lib.mjs`**，编排进 `engine/core.mjs`，IO/CLI 在
+  `surface.mjs`、`ingest.mjs`、`mcp/server.mjs` 与 `hooks/`——测试跟着纯函数走
 - 新功能必须带测试（node:test）；修 bug 先写复现测试再修
 - 提交信息用中文或英文均可，格式：`type(scope): 摘要`
 - 遵守 [行为边界](SECURITY.md)——逆向/绕过类用途的 PR 与讨论不受欢迎

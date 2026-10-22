@@ -40,7 +40,8 @@ test("近重复：重合度够高时只留较新的一条", () => {
   const dir = tmp();
   const text = "部署方案回滚流程快照停服完全一样。";
   const now = Date.now();
-  write(dir, "old.md", "# 旧\n\n" + text.repeat(8), new Date(now - 200 * 86400000));
+  // 两篇都在 30 天内，时间加权相同；旧篇重复更多，融合分更高。留新不留高分。
+  write(dir, "old.md", "# 旧\n\n" + text.repeat(8), new Date(now - 10 * 86400000));
   write(dir, "new.md", "# 新\n\n" + text, new Date(now - 86400000));
   const r = search({ roots: [dir], keywords: ["部署方案"], useLinks: false, limit: 10 });
   const paths = r.results.map(x => x.path);
@@ -69,6 +70,14 @@ test("frontmatter title 覆盖首个标题", () => {
   assert.equal(r.results[0].title, "自定义路标");
   const report = runDoctor([dir]).report.filter(x => x.file === "titled.md" && x.type === "title_quality");
   assert.equal(report.length, 0);
+});
+
+test("UTF-8 BOM 不挡住首个标题", () => {
+  const dir = tmp();
+  write(dir, "bom.md", "\uFEFF# 带标记的标题\n\n这里写部署。\n");
+  const r = search({ roots: [dir], keywords: ["部署"], useLinks: false });
+  assert.equal(r.results[0].title, "带标记的标题");
+  assert.equal(r.results[0].path, "bom.md");
 });
 
 test("surface.md 是普通笔记，会进检索", () => {
