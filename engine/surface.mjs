@@ -7,7 +7,6 @@
  *   node surface.mjs --doctor [--root <语料目录>]...
  */
 import fs from "node:fs";
-import path from "node:path";
 import { search, runDoctor } from "./core.mjs";
 
 const argv = process.argv.slice(2);
@@ -16,22 +15,33 @@ let LIMIT = 10, DETAIL = false, USE_LINKS = true, AS_JSON = false, DOCTOR = fals
 const roots = [];
 const excludes = [];
 let outPath = null;
-for (let i = 0; i < argv.length; i++) {
-  if (argv[i] === "--limit") { LIMIT = parseInt(argv[++i]) || 10; continue; }
-  if (argv[i] === "--root") { roots.push(argv[++i]); continue; }
-  if (argv[i] === "--out") { outPath = argv[++i]; continue; }
-  if (argv[i] === "--detail") { DETAIL = true; continue; }
-  if (argv[i] === "--no-links") { USE_LINKS = false; continue; }
-  if (argv[i] === "--json") { AS_JSON = true; continue; }
-  if (argv[i] === "--doctor") { DOCTOR = true; continue; }
-  if (argv[i] === "--exclude") { excludes.push(argv[++i]); continue; }
-  positional.push(argv[i]);
+let i = 0;
+while (i < argv.length) {
+  const arg = argv[i];
+  const take = flag => {
+    const v = argv[++i];
+    if (v === undefined || v.startsWith("--")) {
+      console.error(`缺少参数: ${flag} 需要一个值`);
+      process.exit(1);
+    }
+    return v;
+  };
+  if (arg === "--limit") LIMIT = parseInt(take("--limit"), 10) || 10;
+  else if (arg === "--root") roots.push(take("--root"));
+  else if (arg === "--out") outPath = take("--out");
+  else if (arg === "--exclude") excludes.push(take("--exclude"));
+  else if (arg === "--detail") DETAIL = true;
+  else if (arg === "--no-links") USE_LINKS = false;
+  else if (arg === "--json") AS_JSON = true;
+  else if (arg === "--doctor") DOCTOR = true;
+  else positional.push(arg);
+  i++;
 }
 const ROOTS = roots.length ? roots : [process.cwd()];
 
 const keywords = positional.join(",").split(/[,，]/).map(s => s.trim()).filter(Boolean);
 if (keywords.length === 0 && !DOCTOR) {
-  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--doctor] [--exclude <目录名>]');
+  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--out <文件>] [--doctor] [--exclude <目录名>]');
   process.exit(1);
 }
 
@@ -57,7 +67,12 @@ const result = search({
 });
 
 if (AS_JSON) {
-  console.log(JSON.stringify({ engine: "duiying-open/0.2", query: keywords, ...result }, null, 2));
+  const payload = JSON.stringify({ engine: "duiying-open/0.2", query: keywords, ...result }, null, 2);
+  console.log(payload);
+  if (outPath) {
+    fs.writeFileSync(outPath, payload + "\n", "utf8");
+    console.error(`(已写入 ${outPath})`);
+  }
 } else {
   let md = `# 记忆上浮 · ${result.time.line}\n\n`;
   md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v0.2(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""})\n`;

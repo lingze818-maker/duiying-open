@@ -79,7 +79,7 @@ test("安全：channel 路径穿越被清洗（../ 不逃出 ingest/）", () => 
   assert.ok(!r.file.includes(".."));
 });
 
-test("安全：channel 路径穿越被清洗（../ 不逃出 ingest/）——重复 slug 自动递增", () => {
+test("append-only：同一 slug 冲突时自动递增后缀", () => {
   const root = tmpRoot();
   const args = { root, channel: "zcode", summary: "同一条摘要", content: "v1", ingested_at: "2026-10-18T15:30:00.000Z" };
   const a = ingest(args);
@@ -107,5 +107,25 @@ test("不存在的 source_path：仍写入但附 warning", () => {
   const root = tmpRoot();
   const r = ingest({ root, channel: "zcode", summary: "s", source_path: "D:/不存在的路径/x.md" });
   assert.equal(r.mode, "reference");
-  assert.ok(r.warnings.some(w => w.includes("不存在")));
+  assert.ok(r.warnings.some(w => w.includes("不存在")), r.warnings.join(" | "));
+});
+
+test("相对 source_path 只提示未校验，不报不存在", () => {
+  const r = ingest({ root: tmpRoot(), channel: "zcode", summary: "s", source_path: "notes/missing.md" });
+  assert.ok(r.warnings.some(w => w.includes("相对路径")));
+  assert.equal(r.warnings.some(w => w.includes("不存在")), false);
+});
+
+test("source_path 换行被压成一行，不撑破 frontmatter", () => {
+  const root = tmpRoot();
+  const r = ingest({
+    root, channel: "zcode", summary: "换行路径",
+    source_path: "/tmp/duiying-missing.md\nsuppress: false",
+  });
+  assert.ok(r.warnings.some(w => w.includes("换行")));
+  const lines = fs.readFileSync(r.file, "utf8").split("\n");
+  const close = lines.indexOf("---", 1);
+  const fm = lines.slice(1, close);
+  assert.ok(fm.some(l => l.startsWith("source_path: ") && l.includes("/tmp/duiying-missing.md")));
+  assert.equal(fm.some(l => l.startsWith("suppress:")), false);
 });

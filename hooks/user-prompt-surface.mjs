@@ -38,11 +38,11 @@ async function main() {
   if (!prompt) return; // 无话可浮，空输出
 
   // 语料根解析（优先级）：环境变量 DUIYING_HOOK_ROOTS > 家目录 .duiying-hook-roots.json > 无（静默跳过）
-  // 本机路径永不硬编码在此脚本里——公开仓零本机信息。
+  // 本机路径与排除目录都不写死——公开仓零本机信息。排除只来自 DUIYING_HOOK_EXCLUDE 或本机配置。
   let roots = (process.env.DUIYING_HOOK_ROOTS || "")
-    .split(";").map(s => s.trim()).filter(Boolean);
+    .split(/[;；]/).map(s => s.trim()).filter(Boolean);
   let exclude = (process.env.DUIYING_HOOK_EXCLUDE || "")
-    .split(",").map(s => s.trim()).filter(Boolean);
+    .split(/[;；,，]/).map(s => s.trim()).filter(Boolean);
   if (!roots.length) {
     try {
       const localCfg = JSON.parse(fs.readFileSync(
@@ -52,7 +52,6 @@ async function main() {
     } catch { /* 无本机配置：静默跳过 */ }
   }
   if (!roots.length) return;
-  if (!exclude.length) exclude = ["源2-提取", "清洗批次", "蒸馏数据"]; // 常见工作区产物目录名（可被上述配置覆盖）
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
   const { search } = await import(coreUrl);

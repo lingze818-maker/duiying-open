@@ -5,6 +5,11 @@
 
 ## [Unreleased]
 
+- **检索与契约对齐**：近重复降噪改回与 doctor 相同的重合度（修复“更短的文档被当成 100% 重复丢掉”），并且只留较新的一条；`total` 按降噪后计数。`superseded_by` 指向缺失文件时不再附注。frontmatter `title` 会覆盖 `#` 标题。`suppress_when` 按“查询里含这个词”生效，`suppress: true` 忽略大小写。沉默条目不再参与联想，也不出现在 `links`。结果日期用 mtime 的本地日历日。词面命中排在纯联想前面。`--detail` 按字面量摘录。名为 `surface.md` 的笔记会正常被检索。
+- **写入 / MCP / 钩子**：POSIX 上把 `D:/` 视为绝对路径；`source_path` 里的换行不会撑破 frontmatter。MCP 无命中时仍返回时间锚，`root` 可以是字符串。`--json --out` 会把 JSON 写入文件。钩子不再内置私有目录名作为默认排除。
+- **工程**：`npm test` 与 CI 纳入 `tests/search.test.mjs` 和 `engine/ingest.test.js`，写入协议测试不再被漏跑。
+- **二次审阅**：结果 `score` 的契约注释改成「词面组优先，同组内再比分数」。读文件时去掉 UTF-8 BOM，避免只有 `#` 标题的笔记路标退回文件名。参数速查补上已有的 `--out` 与 `--exclude`。
+
 - **目录排除**：CLI/检索 `--exclude <目录名>`（可重复）+ MCP `DUIYING_EXCLUDE` 环境变量
   与工具级 exclude 参数——蒸馏/工作区类结构性语料不再污染检索面（10-12 真实语料
   体检实证 97→6 项警示）。
