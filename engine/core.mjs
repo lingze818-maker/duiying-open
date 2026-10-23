@@ -8,10 +8,14 @@ import {
   tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
   parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
   overlapRatio, isSuppressed, formatLocalDate, memoryInstant, memoryKey, joinRoot,
+  classifyIntent, anchorKeywords, lexicalScore, isDuplicateQuery, markSurfaced, GATE_TTL_MS,
 } from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
 const NEAR_DUP = 0.75;
+const HINT = "除非对方问起或自然相关，不要主动罗列这些记忆。";
+/** CLI / MCP 进程内的去重表。测试可传入自己的 gateSession。 */
+const defaultGateSession = new Map();
 
 function* walk(dir, skip) {
   let entries;
@@ -145,6 +149,38 @@ function displayTitle(title) {
   return title.length > 40 ? title.slice(0, 39) + "…" : title;
 }
 
+function emptySurface(nowMs, gate) {
+  return {
+    time: timeAnchor(nowMs),
+    total: 0,
+    hint: HINT,
+    results: [],
+    ...(gate ? { gate } : {}),
+  };
+}
+
+/**
+ * 多条命中且词面重合不一致时，把重合比例并进融合分。
+ * 重合相同则不动分数，时间先验和原来的先后留在原处。
+ * 分数仍是融合分的量级，不是 0–1 的另一套分。
+ */
+function applyLexicalRerank(pool, queryText) {
+  if (pool.length < 2 || !String(queryText ?? "").trim()) return;
+  for (const r of pool) {
+    r.lexScore = lexicalScore(queryText, `${r.d.title}\n${r.d.base}\n${r.d.content}`);
+  }
+  const maxLex = Math.max(...pool.map(r => r.lexScore));
+  const minLex = Math.min(...pool.map(r => r.lexScore));
+  if (!(maxLex > 0) || maxLex - minLex < 1e-9) return;
+  const maxScore = Math.max(1e-9, ...pool.map(r => r.score));
+  for (const r of pool) {
+    const lexNorm = r.lexScore / maxLex;
+    const fusedNorm = r.score / maxScore;
+    // 重合差得越多，越要压过“把同一个词堆很多遍”的融合分。重合相同的项只差在融合分上。
+    r.score = maxScore * (0.75 * lexNorm + 0.25 * fusedNorm);
+  }
+}
+
 /**
  * 检索主入口。
  * @param {object} opts
@@ -155,17 +191,55 @@ function displayTitle(title) {
  *   detail?: boolean           附命中摘录（默认 false）
  *   nowMs?: number             时间基准（测试注入用）
  *   exclude?: string[]         目录名排除表（默认 SKIP_DIRS；含蒸馏工作区等结构性语料时传）
- * @returns {object} { total, hint, results: [{path,root?,title,date,score,links,note?,excerpt?}] }
+ *   gate?: boolean             自动上浮门控。默认关。开了才可能零条返回、不扫描。
+ *   queryText?: string         门控与去重用的原句。缺省把 keywords 拼起来。
+ *   gateSession?: Map          去重表。缺省用本进程一张表。
+ *   gateTtlMs?: number         同一句重复上浮的间隔，默认 120 秒。
+ *   rerank?: boolean           词面重排。默认开；只有多条且重合度不同才改分数。
+ * @returns {object} { total, hint, results: [{path,root?,title,date,score,links,note?,excerpt?}], gate? }
  *   多个根时每条带 root（解析后的绝对路径）；path 与 links 相对该根。
+ *   只有 gate 打开时才带 gate 字段。
  */
 export function search(opts) {
   const roots = opts.roots;
   const multiRoot = new Set(roots.map(resolvedRoot)).size > 1;
-  const keywords = opts.keywords;
+  let keywords = Array.isArray(opts.keywords) ? opts.keywords.map(k => String(k)) : [];
   const limit = opts.limit ?? 10;
   const useLinks = opts.useLinks ?? true;
   const detail = opts.detail ?? false;
   const nowMs = opts.nowMs ?? Date.now();
+  const queryText = String(opts.queryText ?? keywords.join(" "));
+  let gateInfo = null;
+  if (opts.gate) {
+    const session = opts.gateSession ?? defaultGateSession;
+    const ttl = opts.gateTtlMs ?? GATE_TTL_MS;
+    const decision = classifyIntent(queryText);
+    let allow = decision.prefetch;
+    let reason = decision.reason;
+    if (allow && isDuplicateQuery(session, queryText, nowMs, ttl)) {
+      allow = false;
+      reason = "duplicate";
+    }
+    if (allow) {
+      const anchors = anchorKeywords(keywords);
+      if (!anchors.length) {
+        allow = false;
+        reason = "no_anchor";
+      } else {
+        keywords = anchors;
+      }
+    }
+    gateInfo = {
+      enabled: true,
+      allow,
+      intent: decision.intent,
+      reason,
+      session,
+    };
+    if (!allow) return emptySurface(nowMs, {
+      enabled: true, allow: false, intent: decision.intent, reason,
+    });
+  }
   const skip = opts.exclude ? new Set([...SKIP_DIRS, ...opts.exclude]) : SKIP_DIRS;
   const docs = collectDocs(roots, skip);
 
@@ -232,6 +306,8 @@ export function search(opts) {
     for (const [k, v] of n) notes.set(k, v);
   }
 
+  if (opts.rerank !== false) applyLexicalRerank(pool, keywords.join("\n"));
+
   const visible = dedupeNear(pool);
   const relsByRoot = new Map();
   for (const d of docs) {
@@ -244,27 +320,35 @@ export function search(opts) {
     .filter(([j]) => docs[j].root === r.d.root)
     .map(([j]) => docs[j].rel) : []);
 
+  const results = top.map(r => {
+    const out = {
+      path: r.d.rel,
+      ...(multiRoot ? { root: r.d.root } : {}),
+      title: displayTitle(r.d.title),
+      date: r.d.when.iso,
+      score: Math.round(r.score * 10) / 10,
+      links: linksOf(r),
+    };
+    const sup = r.d.fm.get("superseded_by");
+    const note = notes.get(memoryKey(r.d));
+    if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && note) {
+      out.note = note;
+    }
+    if (detail) out.excerpt = hitLine(r.d.content, expanded) ?? displayTitle(r.d.title);
+    return out;
+  });
+  if (gateInfo?.allow && results.length) markSurfaced(gateInfo.session, queryText, nowMs);
   return {
     time: timeAnchor(nowMs),
     total: visible.length,
-    hint: "除非对方问起或自然相关，不要主动罗列这些记忆。",
-    results: top.map(r => {
-      const out = {
-        path: r.d.rel,
-        ...(multiRoot ? { root: r.d.root } : {}),
-        title: displayTitle(r.d.title),
-        date: r.d.when.iso,
-        score: Math.round(r.score * 10) / 10,
-        links: linksOf(r),
-      };
-      const sup = r.d.fm.get("superseded_by");
-      const note = notes.get(memoryKey(r.d));
-      if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && note) {
-        out.note = note;
-      }
-      if (detail) out.excerpt = hitLine(r.d.content, expanded) ?? displayTitle(r.d.title);
-      return out;
-    }),
+    hint: HINT,
+    results,
+    ...(gateInfo ? { gate: {
+      enabled: true,
+      allow: true,
+      intent: gateInfo.intent,
+      reason: gateInfo.reason,
+    } } : {}),
   };
 }
 

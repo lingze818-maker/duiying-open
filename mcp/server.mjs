@@ -22,6 +22,7 @@
 import path from "node:path";
 import { search, runDoctor, displayPath } from "../engine/core.mjs";
 import { ingest } from "../engine/ingest.mjs";
+import { flagEnabled } from "../engine/lib.mjs";
 
 const VERSION = "0.2.0";
 const DEFAULT_ROOTS = (process.env.DUIYING_ROOTS || process.cwd())
@@ -42,6 +43,8 @@ const TOOLS = [
         exclude: { type: "array", items: { type: "string" }, description: "可选：追加排除的目录名（默认排除表之外）" },
         limit: { type: "number", description: "可选：最多返回条数（默认 10）" },
         detail: { type: "boolean", description: "可选：附正文命中摘录" },
+        gate: { type: "boolean", description: "可选：自动上浮门控。问候、纯情绪、无话题闲聊、短时间内同一句重复则零条且不检索。未传时看环境变量 DUIYING_GATE，默认关——模型主动调用不会被拦住。把本工具当每轮预取时传 true 或设 DUIYING_GATE=1。" },
+        rerank: { type: "boolean", description: "可选：词面重排（token 重合 + 子串加分）。未传时看 DUIYING_RERANK，默认开。传 false 关闭。" },
       },
       required: ["query"],
     },
@@ -92,6 +95,13 @@ function asLimit(v) {
   return Math.floor(n);
 }
 
+function asBool(v, envName, fallback) {
+  if (typeof v === "boolean") return v;
+  if (v === 1 || v === "1" || v === "true") return true;
+  if (v === 0 || v === "0" || v === "false") return false;
+  return flagEnabled(process.env[envName], fallback);
+}
+
 function toolCall(name, args) {
   const mergeExclude = extra => {
     const list = [...DEFAULT_EXCLUDE];
@@ -103,13 +113,22 @@ function toolCall(name, args) {
     if (!query) return { isError: true, text: "query 不能为空" };
     const roots = rootsOf(args.root);
     const exclude = mergeExclude(args.exclude);
+    const gate = asBool(args.gate, "DUIYING_GATE", false);
     const r = search({
       roots,
       keywords: query.split(/[,，]/).map(s => s.trim()).filter(Boolean),
+      queryText: query,
       limit: asLimit(args.limit),
       detail: args.detail === true || args.detail === "true" || args.detail === 1,
       exclude,
+      gate,
+      rerank: asBool(args.rerank, "DUIYING_RERANK", true),
     });
+    if (r.gate && r.gate.allow === false) {
+      return {
+        text: `当前：${r.time.line}\n上浮门控未检索（${r.gate.intent} / ${r.gate.reason}）。自动预取不塞记忆；要查这一句请不带 gate 再调一次。`,
+      };
+    }
     let text = `当前：${r.time.line}\n命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
     for (const x of r.results) {
       text += `\n- [${x.date}] ${x.title} —— ${displayPath(x)} (相关度 ${x.score})`;

@@ -9,13 +9,15 @@
  *       "args": ["<本文件路径>"], "timeoutMs": 8000 } ] } ] } }
  *
  * stdin: 事件 JSON（含 prompt 字段=用户消息文本）
- * stdout: {"hookEventName":"UserPromptSubmit","additionalContext":"…"}（无命中输出 {}）
+ * stdout: {"hookEventName":"UserPromptSubmit","additionalContext":"…"}（无命中或被门控挡住时不输出）
+ * 门控默认开：问候、纯情绪、没有话题的短句不检索。DUIYING_GATE=0 关掉。
  * 任何异常静默 exit 0——钩子永远不阻塞对话。
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { flagEnabled } from "../engine/lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,7 +57,19 @@ async function main() {
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
   const { search, displayPath } = await import(coreUrl);
-  const r = search({ roots, keywords: prompt.split(/\s+/).filter(Boolean), limit: 5, detail: false, exclude });
+  // 自动注入默认走门控。DUIYING_GATE=0 可关。关键词仍按空白切——整句中文不在这里拆。
+  const gate = flagEnabled(process.env.DUIYING_GATE, true);
+  const rerank = flagEnabled(process.env.DUIYING_RERANK, true);
+  const r = search({
+    roots,
+    keywords: prompt.split(/\s+/).filter(Boolean),
+    queryText: prompt,
+    limit: 5,
+    detail: false,
+    exclude,
+    gate,
+    rerank,
+  });
   if (!r.results.length) return;
 
   const lines = r.results.map(x => `- [${x.date}] ${x.title} —— ${displayPath(x)}`);

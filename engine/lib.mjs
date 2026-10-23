@@ -317,3 +317,200 @@ export function doctor(docs) {
   }
   return report;
 }
+
+// ================= 公开对齐：规则意图门控 + 词面重排 =================
+// 只保留可公开的规则：memory_recall / open_chat / companion。
+// 不包含陪伴场景的情绪安抚、关系拦截，也不读取任何私有档案。
+
+/** 同一进程内，刚浮过的同一句在这段时间里不再自动浮。 */
+export const GATE_TTL_MS = 120_000;
+
+const GREETINGS = new Set([
+  "你好", "您好", "嗨", "哈喽", "哈啰", "嗨喽", "hello", "hi", "hey",
+  "早上好", "晚上好", "下午好", "早安", "午安", "晚安", "在吗", "在不在",
+  "good morning", "good evening", "good night",
+]);
+const EMOTIONS = new Set([
+  "好累", "好累了", "好累啊", "累了", "累死了", "好烦", "好烦啊", "烦死了",
+  "难过", "好难过", "伤心", "开心", "高兴", "好开心", "焦虑", "好焦虑",
+  "郁闷", "无聊", "委屈", "好委屈", "想哭", "呜呜", "哈哈", "呵呵", "嘿嘿",
+  "谢谢", "感谢", "辛苦了", "太好了",
+  "tired", "so tired", "sad", "happy", "stressed", "lol", "thanks", "thank you",
+]);
+const ACKS = new Set([
+  "好", "好的", "好呀", "行", "可以", "收到", "明白", "知道了",
+  "嗯", "嗯嗯", "哦", "噢", "啊", "ok", "okay", "got it",
+]);
+
+/** 从锚点里剥掉的泛情绪 / 问候。单字附和只在整句判定，避免拆碎正常词。 */
+const STRIP_PHRASES = [
+  "good morning", "good evening", "good night", "thank you", "so tired", "got it",
+  "早上好", "晚上好", "下午好", "烦死了", "好难过", "好焦虑", "好开心", "好委屈", "辛苦了", "太好了",
+  "好累了", "好累啊", "累死了", "好烦啊",
+  "你好", "您好", "哈喽", "哈啰", "嗨喽", "晚安", "早安", "午安", "在吗", "在不在",
+  "好累", "累了", "好烦", "难过", "伤心", "开心", "高兴", "焦虑", "郁闷", "无聊", "委屈", "想哭",
+  "谢谢", "感谢", "哈哈", "呵呵", "嘿嘿", "呜呜",
+  "知道了", "好的", "收到", "明白",
+  "hello", "thanks", "tired", "happy", "stressed", "okay",
+  "hey", "lol", "sad", "hi", "ok",
+];
+const STRIP_SORTED = [...STRIP_PHRASES].sort((a, b) => b.length - a.length);
+
+const MEMORY_RE = /还记得|记得|回忆|想起|上回|上次|以前|之前|曾经|那次|当时|聊过|说过|决定过|定过|记忆里|笔记里|记录里|帮我回忆|\bdo you remember\b|\blast time\b|\bwe decided\b|\bpreviously\b|\bremember\b|\brecall\b/i;
+const MEMORY_STRIP = /还记得|记得|回忆|想起|上回|上次|以前|之前|曾经|那次|当时|聊过|说过|决定过|定过|记忆里|笔记里|记录里|帮我回忆|\bdo you remember\b|\blast time\b|\bwe decided\b|\bpreviously\b|\bremember\b|\brecall\b/gi;
+const TIME_STRIP = /上个月|上月|上周|最近|去年|今年|今天|昨天|前天|早期|当初|前几天|近来|\blast\s+week\b|\blast\s+month\b|\blast\s+year\b|\brecently\b|\byesterday\b|\bearlier\b|\btoday\b/gi;
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function peelUtterance(text) {
+  let spaced = String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  spaced = spaced.replace(/[!！。.~～?？]+/g, "").trim();
+  const compact = spaced.replace(/[，,、\s]+/g, "").replace(/(呀|啊|哟|呢|吧|啦)+$/g, "");
+  return { spaced, compact };
+}
+
+function phaticKind(text) {
+  const { spaced, compact } = peelUtterance(text);
+  for (const key of [spaced, compact]) {
+    if (GREETINGS.has(key)) return "greeting";
+    if (EMOTIONS.has(key)) return "emotion";
+    if (ACKS.has(key)) return "companion";
+  }
+  return null;
+}
+
+/** 去掉泛情绪、问候、短附和，留下可当锚点的文本。 */
+export function stripPhatic(text) {
+  let s = String(text ?? "");
+  for (const phrase of STRIP_SORTED) {
+    const esc = escapeRegExp(phrase);
+    const re = /[a-z]/i.test(phrase)
+      ? new RegExp(`\\b${esc}\\b`, "gi")
+      : new RegExp(esc, "g");
+    s = s.replace(re, " ");
+  }
+  return s.replace(/[，,。.!！？?、；;：:~～\s]+/g, " ").trim();
+}
+
+function replaceCopy(re, text) {
+  re.lastIndex = 0;
+  return text.replace(re, " ");
+}
+
+/** 剥掉情绪、回忆套话和光秃秃的时间词之后，还剩不剩一个具体话题。 */
+export function hasExplicitTopic(text) {
+  let s = stripPhatic(text).toLowerCase();
+  s = replaceCopy(MEMORY_STRIP, s);
+  s = replaceCopy(TIME_STRIP, s);
+  s = s.replace(/什么|怎么|如何|为什么|一下子|一下|这个|那个|我们|你们|他们|她们|自己|请帮|帮我|一个/g, " ");
+  s = s.replace(/[\s，,。.!！？?、的了吗呢吧啊呀哦哟和与或及把被在是就也还很不没]/g, "");
+  if (/[\u4e00-\u9fff]{2,}/.test(s)) return true;
+  if (/[a-z0-9]{3,}/.test(s)) return true;
+  return false;
+}
+
+/**
+ * 规则优先的意图。prefetch 为真才允许自动上浮去检索。
+ * intent: memory_recall | open_chat | companion
+ */
+export function classifyIntent(text) {
+  const raw = String(text ?? "").trim();
+  const memorySignal = MEMORY_RE.test(raw);
+  const explicitTopic = raw ? hasExplicitTopic(raw) : false;
+  const kind = raw ? phaticKind(raw) : "companion";
+  if (!raw || (kind && !memorySignal && !explicitTopic)) {
+    return {
+      intent: "companion",
+      prefetch: false,
+      reason: kind || "companion",
+      memorySignal,
+      explicitTopic,
+    };
+  }
+  if (memorySignal || explicitTopic) {
+    return {
+      intent: "memory_recall",
+      prefetch: true,
+      reason: memorySignal ? "memory" : "topic",
+      memorySignal,
+      explicitTopic,
+    };
+  }
+  const { compact } = peelUtterance(raw);
+  if (compact.length <= 16) {
+    return { intent: "companion", prefetch: false, reason: "companion", memorySignal, explicitTopic };
+  }
+  return { intent: "open_chat", prefetch: false, reason: "open_chat", memorySignal, explicitTopic };
+}
+
+/** 自动上浮用的锚点：丢掉纯情绪 / 问候关键词，其余剥掉套话。 */
+export function anchorKeywords(keywords) {
+  const out = [];
+  for (const raw of keywords || []) {
+    const stripped = stripPhatic(String(raw)).trim();
+    if (!stripped) continue;
+    if (phaticKind(stripped)) continue;
+    out.push(stripped);
+  }
+  return out;
+}
+
+export function gateQueryKey(text) {
+  return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** session 是调用方持有的 Map。纯函数，不自己存状态。 */
+export function isDuplicateQuery(session, text, nowMs, ttlMs = GATE_TTL_MS) {
+  if (!session || typeof session.get !== "function") return false;
+  const key = gateQueryKey(text);
+  if (!key) return false;
+  const prev = session.get(key);
+  return typeof prev === "number" && nowMs - prev < ttlMs;
+}
+
+export function markSurfaced(session, text, nowMs) {
+  if (!session || typeof session.set !== "function") return;
+  const key = gateQueryKey(text);
+  if (key) session.set(key, nowMs);
+}
+
+/**
+ * 词面分：查询 token 与文本 token 的重合比例，加上子串加分。
+ * 整句出现在文本里加 0.35；否则按各段关键词出现的比例给同样上限的一部分。
+ * 没有词面重合时为 0。不使用向量。
+ */
+export function lexicalScore(query, text) {
+  const hay = String(text ?? "").toLowerCase();
+  if (!hay.trim()) return 0;
+  const parts = String(query ?? "")
+    .split(/[,，\n]/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!parts.length) return 0;
+  const qTokens = [...new Set(parts.flatMap(p => tokenize(p)))].filter(t => t.length >= 2);
+  if (!qTokens.length) return 0;
+  const dTokens = new Set(tokenize(hay));
+  let hit = 0;
+  for (const t of qTokens) if (dTokens.has(t)) hit++;
+  const overlap = hit / qTokens.length;
+  const joined = parts.join("");
+  let bonus = 0;
+  if (joined.length >= 2 && hay.includes(joined)) bonus = 0.35;
+  else {
+    let sub = 0;
+    for (const p of parts) if (p.length >= 2 && hay.includes(p)) sub++;
+    bonus = 0.35 * (sub / parts.length);
+  }
+  return overlap + bonus;
+}
+
+/** 环境变量开关。未设置时用 fallback。 */
+export function flagEnabled(value, fallback) {
+  if (value == null || String(value).trim() === "") return fallback;
+  const v = String(value).trim().toLowerCase();
+  if (["1", "true", "on", "yes"].includes(v)) return true;
+  if (["0", "false", "off", "no"].includes(v)) return false;
+  return fallback;
+}

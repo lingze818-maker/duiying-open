@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: 引擎测试（零依赖，无需 install）
-        run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs engine/ingest.test.js
+        run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs engine/ingest.test.js
       - name: CLI 冒烟（示例语料 + JSON 契约）
         run: |
           node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --json | node -e "
