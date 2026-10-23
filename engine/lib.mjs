@@ -50,7 +50,8 @@ export function bm25(queryTokens, d, stats) {
   return s;
 }
 
-/** 时间先验：tier=常态（30 天内 1.25 / 90 天内 1.1）；timeMode=查询含时间词时加大（1.6/1.3） */
+/** 时间先验。mtimeMs 是记忆发生时刻：frontmatter date 的本地零点，或文件 mtime。
+ *  常态：30 天内 1.25 / 90 天内 1.1；timeMode（查询含时间词，时间优先）：1.6 / 1.3。 */
 export function timeBoost(mtimeMs, nowMs, timeMode) {
   const days = (nowMs - mtimeMs) / 86400000;
   if (timeMode) return days <= 30 ? 1.6 : days <= 90 ? 1.3 : 1.0;
@@ -67,6 +68,51 @@ export function hasTimeWord(s) {
 export function formatLocalDate(date) {
   const pad = n => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * 合法的记忆日期：整值必须是真实存在的 YYYY-MM-DD。
+ * 返回该日本地零点，和 formatLocalDate / mtime 同一时区口径。
+ * 缺省、带时间、斜杠、溢出（如 2026-02-31）都返回 null，调用方退回 mtime。
+ */
+export function parseMemoryDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const y = Number(value.slice(0, 4));
+  const mo = Number(value.slice(5, 7));
+  const d = Number(value.slice(8, 10));
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return { iso: value, ms: dt.getTime() };
+}
+
+/** 记忆发生时刻：有合法 frontmatter date 用它，否则用 mtime。 */
+export function memoryInstant(fm, mtime) {
+  const parsed = parseMemoryDate(fm?.get?.("date"));
+  if (parsed) return parsed;
+  const date = mtime instanceof Date ? mtime : new Date(mtime);
+  return { iso: formatLocalDate(date), ms: date.getTime() };
+}
+
+/** 去掉闭合的 frontmatter，只留正文。未闭合则整篇都算正文。 */
+function markdownBody(md) {
+  const text = md.charCodeAt(0) === 0xfeff ? md.slice(1) : md;
+  const lines = text.split(/\r?\n/);
+  if (lines[0] !== "---") return text;
+  const close = lines.indexOf("---", 1);
+  if (close === -1) return text;
+  return lines.slice(close + 1).join("\n");
+}
+
+/** 正文（不含 frontmatter）里是否有真实的 YYYY-MM-DD。不认别的日期写法。 */
+export function bodyHasCalendarDate(md) {
+  if (typeof md !== "string" || !md) return false;
+  const re = /(?:^|[^\d])(\d{4}-\d{2}-\d{2})(?!\d)/g;
+  let m;
+  const body = markdownBody(md);
+  while ((m = re.exec(body))) {
+    if (parseMemoryDate(m[1])) return true;
+  }
+  return false;
 }
 
 /**
@@ -218,8 +264,9 @@ export function applyMemoryState(docs, opts = {}) {
 
 /**
  * ⑧ doctor 体检——纯规则无 LLM；报告供人工深度清理，检索层另自动应用安全降噪。
- * docs: [{rel, title, fm, tokens: Set, root?}] → 报告数组 [{type, file, detail}]
+ * docs: [{rel, title, fm, tokens: Set, root?, content?}] → 报告数组 [{type, file, detail}]
  * 多个 root 时 file（以及近重复对照名）带上根目录；近重复只在同一个根内比较。
+ * content 可选：正文有 YYYY-MM-DD 但没有合法 date 字段时给 missing_date，不改原文。
  */
 export function doctor(docs) {
   const report = [];
@@ -245,6 +292,13 @@ export function doctor(docs) {
     }
     if (String(fm.get("suppress") ?? "").toLowerCase() === "true") {
       report.push({ type: "suppressed_list", file: label(d), detail: "此篇整篇沉默中——请定期人工复核是否解禁" });
+    }
+    const rawDate = fm.get("date");
+    const validDate = parseMemoryDate(typeof rawDate === "string" ? rawDate : undefined);
+    if (!validDate && fm.has("date")) {
+      report.push({ type: "missing_date", file: label(d), detail: "date 字段不是 YYYY-MM-DD，已退回文件修改时间" });
+    } else if (!validDate && bodyHasCalendarDate(d.content)) {
+      report.push({ type: "missing_date", file: label(d), detail: "正文里有日期，但没有 date 字段" });
     }
   }
   // 近重复检测：两两 token 重合度 ≥ 0.75（与检索降噪同一公式）。只比同一个根。

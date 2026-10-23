@@ -7,7 +7,7 @@ import path from "node:path";
 import {
   tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
   parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
-  overlapRatio, isSuppressed, formatLocalDate, memoryKey, joinRoot,
+  overlapRatio, isSuppressed, formatLocalDate, memoryInstant, memoryKey, joinRoot,
 } from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
@@ -53,12 +53,15 @@ function collectDocs(roots, skip) {
       const tf = new Map();
       for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
       const fm = parseFrontmatter(content);
+      const mtime = fs.statSync(file).mtime;
       docs.push({
         root: rootFwd,
         rel: path.resolve(file).split(path.sep).join("/").replace(rootFwd + "/", ""),
         base: path.basename(file).toLowerCase(),
         title: landmarkTitle(content, file, fm),
-        content, mtime: fs.statSync(file).mtime,
+        content, mtime,
+        // 发生日：frontmatter date，否则 mtime。时间先验、排序新旧、结果 date 共用这一份。
+        when: memoryInstant(fm, mtime),
         tf, len: tokens.length,
         fm,
       });
@@ -107,10 +110,15 @@ export function timeAnchor(nowMs) {
   };
 }
 
-/** 词面命中在前，纯联想在后；组内再比融合分与新旧。 */
+/** 同一天再比 mtime，避免两篇都写了同一 date 时丢掉日内先后。 */
+function newerBy(a, b) {
+  return (a.when.ms - b.when.ms) || (a.mtime - b.mtime);
+}
+
+/** 词面命中在前，纯联想在后；组内再比融合分与发生日（无 date 时即 mtime）。 */
 function rankCompare(a, b) {
   const group = r => (r.lexical > 0 ? 0 : 1);
-  return group(a) - group(b) || b.score - a.score || b.d.mtime - a.d.mtime;
+  return group(a) - group(b) || b.score - a.score || newerBy(b.d, a.d);
 }
 
 /**
@@ -126,7 +134,7 @@ function dedupeNear(pool) {
     const fresh = { ...r, _tok: tokens };
     if (idx === -1) { kept.push(fresh); continue; }
     const prev = kept[idx];
-    const newer = r.d.mtime - prev.d.mtime;
+    const newer = newerBy(r.d, prev.d);
     if (newer > 0 || (newer === 0 && r.score > prev.score)) kept[idx] = fresh;
   }
   kept.sort(rankCompare);
@@ -185,7 +193,7 @@ export function search(opts) {
   for (const r of scored) {
     // 融合权重：标题整串 ×2.2 > BM25 ×1.5 > 正文短语 ×1.0
     r.score = ((r._title / maxTi) * 2.2 + (r._bm / maxBm) * 1.5 + (r._phrase / maxPh) * 1.0)
-      * timeBoost(r.d.mtime.getTime(), nowMs, timeMode);
+      * timeBoost(r.d.when.ms, nowMs, timeMode);
     if (r.score <= 0.01) r.score = 0;
     r.lexical = r.score;
   }
@@ -245,7 +253,7 @@ export function search(opts) {
         path: r.d.rel,
         ...(multiRoot ? { root: r.d.root } : {}),
         title: displayTitle(r.d.title),
-        date: formatLocalDate(r.d.mtime),
+        date: r.d.when.iso,
         score: Math.round(r.score * 10) / 10,
         links: linksOf(r),
       };
@@ -268,6 +276,7 @@ export function runDoctor(roots, exclude) {
     root: d.root,
     title: d.title,
     fm: d.fm,
+    content: d.content,
     tokens: new Set(d.tf.keys()),
   }));
   return { count: docs.length, report: doctor(docs) };

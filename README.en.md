@@ -40,13 +40,13 @@ Frontends can be replaced. They can die. Your memory stays.
 | Capability | What it does |
 |---|---|
 | **BM25 + exact-phrase fusion** | CJK handled via character bigrams — no tokenizer needed; whole-phrase hits score separately |
-| **Time prior** | Recent memories surface naturally; queries like "recently" switch to time-first mode |
+| **Time prior** | Recent memories surface naturally; queries like "recently" switch to time-first mode. Optional frontmatter `date: YYYY-MM-DD` is the day it happened; otherwise the file's mtime is used |
 | **Associative surfacing** | Notes auto-link; one hit pulls its neighbors in — "deployment" recalls March's architecture decision |
 | **Supersede, don't delete** | Outdated notes keep a `superseded_by` marker — down-weighted, with a pointer to the successor |
 | **Silence list** | `suppress` / `suppress_when` — some memories shouldn't come up, but *not surfacing ≠ deleting* |
 | **Landmark injection** | One line per cue — the same token budget carries more memories |
 | **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |
-| **doctor checkup** | `--doctor` reports broken links, near-duplicates, title quality, and the silence list. Search already keeps the newest near-duplicate and hides notes for missing targets. Files are never edited |
+| **doctor checkup** | `--doctor` reports broken links, near-duplicates, title quality, the silence list, and notes whose body has a `YYYY-MM-DD` but no `date` field. Search keeps the newer near-duplicate (that date, else mtime) and hides notes for missing targets. Files are never edited |
 | **Multi-frontend write** | Any MCP-connected frontend can contribute: summaries authored by the writer, content inlined or path-referenced, event/channel tags — switching frontends is just a breath |
 
 **No vector database. No graph database. No local models. No API keys.**
@@ -115,6 +115,7 @@ Four routes — see [docs/接入契约.md](docs/接入契约.md) (Chinese; schem
 
 ```markdown
 ---
+date: 2026-04-10             # optional day the memory happened
 superseded_by: new-plan.md   # down-weighted, kept, annotated
 suppress: true               # never surfaces (file stays untouched)
 suppress_when: [layoffs]     # silent only when the query matches
