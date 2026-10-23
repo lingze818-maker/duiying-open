@@ -122,14 +122,18 @@ test("词面重排把同时写到两个词的笔记排到堆词前面，分数�
   assert.equal(on.results[0].path !== undefined && !("lexical" in on.results[0]), true);
 });
 
-test("手动 CLI 不门控：只有「最近」仍是空结果，不在这里补最近条目", async () => {
+test("手动 CLI 不门控：只有「最近」按发生日返回笔记；--gate 仍不检索", async () => {
   const { stdout } = await run(process.execPath, [ENGINE, "最近", "--root", EXAMPLE, "--json", "--no-gate"], {
     env: cleanEnv(),
   });
   const parsed = JSON.parse(stdout);
-  assert.equal(parsed.total, 0);
-  assert.deepEqual(parsed.results, []);
   assert.equal(parsed.gate, undefined);
+  assert.equal(parsed.total, 3);
+  const paths = parsed.results.map(x => x.path);
+  for (const p of ["会议纪要.md", "决策记录.md", "协作偏好.md"]) {
+    assert.ok(paths.includes(p), paths.join(","));
+  }
+  assert.equal(paths.includes("README.md"), false);
   const gated = await run(process.execPath, [ENGINE, "最近", "--root", EXAMPLE, "--json", "--gate"], {
     env: cleanEnv(),
   });

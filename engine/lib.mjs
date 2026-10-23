@@ -358,7 +358,7 @@ const STRIP_SORTED = [...STRIP_PHRASES].sort((a, b) => b.length - a.length);
 
 const MEMORY_RE = /还记得|记得|回忆|想起|上回|上次|以前|之前|曾经|那次|当时|聊过|说过|决定过|定过|记忆里|笔记里|记录里|帮我回忆|\bdo you remember\b|\blast time\b|\bwe decided\b|\bpreviously\b|\bremember\b|\brecall\b/i;
 const MEMORY_STRIP = /还记得|记得|回忆|想起|上回|上次|以前|之前|曾经|那次|当时|聊过|说过|决定过|定过|记忆里|笔记里|记录里|帮我回忆|\bdo you remember\b|\blast time\b|\bwe decided\b|\bpreviously\b|\bremember\b|\brecall\b/gi;
-const TIME_STRIP = /上个月|上月|上周|最近|去年|今年|今天|昨天|前天|早期|当初|前几天|近来|\blast\s+week\b|\blast\s+month\b|\blast\s+year\b|\brecently\b|\byesterday\b|\bearlier\b|\btoday\b/gi;
+const TIME_STRIP = /上个月|上月|上周|最近|去年|今年|今天|昨天|前天|以前|之前|早期|当初|前几天|近来|\blast\s+week\b|\blast\s+month\b|\blast\s+year\b|\brecently\b|\byesterday\b|\bearlier\b|\btoday\b/gi;
 
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -397,6 +397,90 @@ export function stripPhatic(text) {
 function replaceCopy(re, text) {
   re.lastIndex = 0;
   return text.replace(re, " ");
+}
+
+/**
+ * 查询里只有时间词、没有别的词面锚点。
+ * 这种查询不能靠 BM25 起步——时间词今天只给已经命中的文档加权。
+ */
+export function isTimeOnlyQuery(text) {
+  const raw = String(text ?? "");
+  if (!hasTimeWord(raw)) return false;
+  let s = stripPhatic(raw).toLowerCase();
+  s = replaceCopy(TIME_STRIP, s);
+  s = s.replace(/[\s，,。.!！？?、；;：:~～的了吗呢吧啊呀哦哟和与或及把被在是就也还很不没]/g, "");
+  if (/[\u4e00-\u9fff]/.test(s)) return false;
+  if (/[a-z0-9]{2,}/.test(s)) return false;
+  return true;
+}
+
+/** 按标题切开正文。没有标题结构时，整篇是一段。 */
+export function markdownSections(md) {
+  const body = markdownBody(typeof md === "string" ? md : "");
+  const lines = body.split(/\r?\n/);
+  const sections = [];
+  let heading = "";
+  let buf = [];
+  const push = () => {
+    const text = [heading, ...buf].join("\n").trim();
+    if (text) sections.push({ heading, text });
+  };
+  for (const line of lines) {
+    const h = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
+    if (h) {
+      push();
+      heading = h[2].trim();
+      buf = [];
+    } else buf.push(line);
+  }
+  push();
+  return sections;
+}
+
+function sectionWords(text) {
+  return [...String(text).toLowerCase().matchAll(/[a-z0-9][a-z0-9+#.-]*|[\u4e00-\u9fff]+/g)]
+    .map(m => m[0]);
+}
+
+/** 继任篇重述了这一段：段里某个不少于 4 字的词原样出现在继任篇。 */
+function sectionRestated(sectionText, successorText) {
+  const hay = String(successorText ?? "").toLowerCase();
+  for (const word of sectionWords(sectionText)) {
+    if (word.length >= 4 && hay.includes(word)) return true;
+  }
+  return false;
+}
+
+/** 去掉时间词和两端虚词，留下要落到某一段上的锚点。不拆开词中间的「的」。 */
+export function claimAnchors(keywords) {
+  const anchors = [];
+  const edge = /^[\s，,。.!！？?、；;：:~～的了吗呢吧啊呀哦哟]+|[\s，,。.!！？?、；;：:~～的了吗呢吧啊呀哦哟]+$/g;
+  for (const raw of keywords || []) {
+    const stripped = replaceCopy(TIME_STRIP, String(raw).toLowerCase());
+    for (const part of stripped.split(/[\s，,。.!！？?、；;：:~～]+/)) {
+      edge.lastIndex = 0;
+      const word = part.replace(edge, "");
+      if (word.length >= 2 && !anchors.includes(word)) anchors.push(word);
+    }
+  }
+  return anchors;
+}
+
+/**
+ * 整篇 superseded_by 什么时候真正降权、附注。
+ * 只有一个标题段（或没有标题）时，整篇都算被取代——继任篇不必逐字重抄。
+ * 一篇里分成多段时，只处理查询落到、且被继任篇重述过的那一段；
+ * 没被重述的决定保持原分，也不标「已被取代」。查询没有词面锚点（例如只问「最近」）时不动整篇。
+ * 查询没落到任何一段时，仍按整篇处理。
+ */
+export function supersessionApplies(content, successorContent, keywords) {
+  const sections = markdownSections(content);
+  if (sections.length < 2) return true;
+  const anchors = claimAnchors(keywords);
+  if (!anchors.length) return false;
+  const matched = sections.filter(s => anchors.some(a => s.text.toLowerCase().includes(a)));
+  if (!matched.length) return true;
+  return matched.some(s => sectionRestated(s.text, successorContent));
 }
 
 /** 剥掉情绪、回忆套话和光秃秃的时间词之后，还剩不剩一个具体话题。 */
@@ -443,6 +527,23 @@ export function classifyIntent(text) {
     return { intent: "companion", prefetch: false, reason: "companion", memorySignal, explicitTopic };
   }
   return { intent: "open_chat", prefetch: false, reason: "open_chat", memorySignal, explicitTopic };
+}
+
+/**
+ * 把一整句用户消息切成检索关键词。空白和标点不够：中文句子没有空格，
+ * 整句当一个关键词时，命中行对不上正文里的那一行。
+ * 虚词、回忆套话和时间词是切分点，留下的实词整段保留（「部署」「回滚」）。
+ */
+export function promptKeywords(text) {
+  const gap = /[\s,，。！？、；;：:~～!?？.()（）【】\[\]"'“”‘’<>《》]+|(?:请帮我|请帮|帮我|一下子|一下|还记得|记得|我们|你们|他们|她们|自己|这个|那个|什么|怎么|如何|为什么|上个月|上月|上周|上次|上回|以前|之前|最近|今天|昨天|前天|今年|去年|以及|还有|或者|并且|因为|所以|如果|但是|然后|就是|可以|需要|应该|觉得|知道|一个|没有|不是)|[的了吗呢吧啊呀哦哟和与或及]/g;
+  const out = [];
+  for (const part of String(text ?? "").split(gap)) {
+    const word = part.trim();
+    if (word.length < 2) continue;
+    if (out.some(x => x.toLowerCase() === word.toLowerCase())) continue;
+    out.push(word);
+  }
+  return out;
 }
 
 /** 自动上浮用的锚点：丢掉纯情绪 / 问候关键词，其余剥掉套话。 */

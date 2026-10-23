@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseFrontmatter, applyMemoryState, doctor, memoryKey } from "../engine/lib.mjs";
+import { parseFrontmatter, applyMemoryState, doctor, memoryKey, supersessionApplies } from "../engine/lib.mjs";
 
 // ---- ⑥ frontmatter 解析（零依赖 YAML 子集：key: value / key: [a, b]）----
 test("parseFrontmatter: 解析 superseded_by 与 suppress 字段", () => {
@@ -40,6 +40,27 @@ test("superseded: 被取代条目降权并附注", () => {
   assert.ok(notes.get("旧方案.md").includes("新方案.md"), "附注指向取代者");
   assert.equal(notes.get(memoryKey(docs[0])), notes.get("旧方案.md"));
   assert.equal(docs[1].score, 8, "正常条目不动");
+});
+test("supersessionApplies: 多段里没被重述的决定不算被取代", () => {
+  const old = `---
+superseded_by: next.md
+---
+# 记录
+
+## 选型
+定了用 SQLite，手写 SQL。
+
+## 部署方案
+回滚流程：先停服务，再还原快照。
+`;
+  const next = "# 纪要\n\n部署方案评审通过，回滚流程补了自动化。\n";
+  assert.equal(supersessionApplies(old, next, ["SQLite"]), false);
+  assert.equal(supersessionApplies(old, next, ["手写 SQL"]), false);
+  assert.equal(supersessionApplies(old, next, ["部署"]), true);
+  assert.equal(supersessionApplies(old, next, ["最近"]), false);
+  const whole = "# 旧部署\n\n部署方案第一版。\n";
+  const rewritten = "# 新部署\n\n完全换了一套说法。\n";
+  assert.equal(supersessionApplies(whole, rewritten, ["部署方案"]), true);
 });
 test("superseded: 不同根的同名文件各有附注", () => {
   const docs = [
