@@ -5,8 +5,9 @@
 
 ## [Unreleased]
 
+- **记忆日期**：可选 frontmatter `date: YYYY-MM-DD`。有合法值时，时间先验、时间优先模式、近重复留新、以及结果 `date` 都用这一天；没有或不是真实日历日则退回 mtime 的本地日历日。不改写原文。doctor 在正文有 `YYYY-MM-DD` 但没有 `date` 字段（或字段非法）时提示，由人决定是否补。只含时间词的查询（如单独的「最近」）仍然不会列出笔记。
 - **多根身份**：重复 `--root` 时，同名相对路径不再串库。多根结果带 `root`，`path` 与 `links` 相对该根；`superseded_by` 附注和近重复降噪只在同一个根内比较。doctor 的 `file` 在多根时带上根目录。
-- **检索与契约对齐**：近重复降噪改回与 doctor 相同的重合度（修复“更短的文档被当成 100% 重复丢掉”），并且只留较新的一条；`total` 按降噪后计数。`superseded_by` 指向缺失文件时不再附注。frontmatter `title` 会覆盖 `#` 标题。`suppress_when` 按“查询里含这个词”生效，`suppress: true` 忽略大小写。沉默条目不再参与联想，也不出现在 `links`。结果日期用 mtime 的本地日历日。词面命中排在纯联想前面。`--detail` 按字面量摘录。名为 `surface.md` 的笔记会正常被检索。
+- **检索与契约对齐**：近重复降噪改回与 doctor 相同的重合度（修复“更短的文档被当成 100% 重复丢掉”），并且只留较新的一条；`total` 按降噪后计数。`superseded_by` 指向缺失文件时不再附注。frontmatter `title` 会覆盖 `#` 标题。`suppress_when` 按“查询里含这个词”生效，`suppress: true` 忽略大小写。沉默条目不再参与联想，也不出现在 `links`。没有 frontmatter `date` 时，结果日期用 mtime 的本地日历日。词面命中排在纯联想前面。`--detail` 按字面量摘录。名为 `surface.md` 的笔记会正常被检索。
 - **写入 / MCP / 钩子**：POSIX 上把 `D:/` 视为绝对路径；`source_path` 里的换行不会撑破 frontmatter。MCP 无命中时仍返回时间锚，`root` 可以是字符串。`--json --out` 会把 JSON 写入文件。钩子不再内置私有目录名作为默认排除。
 - **工程**：`npm test` 与 CI 纳入 `tests/search.test.mjs` 和 `engine/ingest.test.js`，写入协议测试不再被漏跑。
 - **二次审阅**：结果 `score` 的契约注释改成「词面组优先，同组内再比分数」。读文件时去掉 UTF-8 BOM，避免只有 `#` 标题的笔记路标退回文件名。参数速查补上已有的 `--out` 与 `--exclude`。

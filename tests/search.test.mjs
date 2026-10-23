@@ -132,6 +132,78 @@ test("示例库：SQLite 的词面命中排在纯联想前面，部署仍以会�
   assert.ok(deploy.results.every(x => x.path !== "README.md" && !x.links.includes("README.md")));
 });
 
+test("frontmatter date 覆盖更新的 mtime：结果日期与时间先验都认发生日", () => {
+  const dir = tmp();
+  const now = new Date(2026, 3, 20, 12, 0, 0);
+  const shared = "部署方案需要记住。";
+  // 旧决定被重新保存，mtime 是今天；周会文件很久没碰，但 date 更晚。
+  write(dir, "old-decision.md", `---\ndate: 2026-01-01\n---\n# 旧决定\n\n苹果香蕉橘子葡萄草莓柚子。${shared}\n`, now);
+  write(dir, "meeting.md", `---\ndate: "2026-04-10"\n---\n# 周会\n\n火车轮船飞机地铁公交单车。${shared}\n`, new Date(2020, 0, 1));
+  const dated = search({
+    roots: [dir], keywords: ["最近的部署"], useLinks: false, nowMs: now.getTime(),
+  });
+  const byPath = Object.fromEntries(dated.results.map(x => [x.path, x]));
+  assert.equal(byPath["meeting.md"].date, "2026-04-10");
+  assert.equal(byPath["old-decision.md"].date, "2026-01-01");
+  assert.ok(
+    dated.results.findIndex(x => x.path === "meeting.md")
+      < dated.results.findIndex(x => x.path === "old-decision.md"),
+    dated.results.map(x => `${x.path}:${x.date}:${x.score}`).join(", "),
+  );
+  // 不带时间词时，时间先验仍然用发生日，而不是“刚保存所以更新”。
+  const plain = search({
+    roots: [dir], keywords: ["部署"], useLinks: false, nowMs: now.getTime(),
+  });
+  assert.ok(
+    plain.results.findIndex(x => x.path === "meeting.md")
+      < plain.results.findIndex(x => x.path === "old-decision.md"),
+  );
+});
+
+test("没有合法 date 时，结果日期和先后都退回 mtime", () => {
+  const dir = tmp();
+  const now = new Date(2026, 3, 20, 15, 0, 0);
+  const shared = "部署方案需要记住。";
+  write(dir, "touched.md", `# 旧决定\n\n苹果香蕉橘子葡萄草莓柚子。${shared}\n`, now);
+  write(dir, "ancient.md", `---\ndate: 2026-02-31\n---\n# 周会\n\n火车轮船飞机地铁公交单车。${shared}\n`, new Date(2020, 0, 1, 8, 0, 0));
+  const r = search({
+    roots: [dir], keywords: ["最近的部署"], useLinks: false, nowMs: now.getTime(),
+  });
+  const byPath = Object.fromEntries(r.results.map(x => [x.path, x]));
+  assert.equal(byPath["touched.md"].date, "2026-04-20");
+  assert.equal(byPath["ancient.md"].date, "2020-01-01");
+  assert.equal(r.results[0].path, "touched.md");
+});
+
+test("近重复：发生日比 mtime 新的留下，且不改原文", () => {
+  const dir = tmp();
+  const text = "部署方案回滚流程快照停服完全一样。";
+  const now = new Date(2026, 3, 20, 12, 0, 0);
+  const oldBody = `---\ndate: 2026-01-01\n---\n# 旧\n\n${text.repeat(8)}`;
+  const newBody = `---\ndate: 2026-04-10\n---\n# 新\n\n${text}`;
+  const oldPath = write(dir, "old.md", oldBody, now);
+  const newPath = write(dir, "new.md", newBody, new Date(2020, 0, 1));
+  const r = search({
+    roots: [dir], keywords: ["部署方案"], useLinks: false, nowMs: now.getTime(), limit: 10,
+  });
+  assert.deepEqual(r.results.map(x => x.path), ["new.md"]);
+  assert.equal(r.results[0].date, "2026-04-10");
+  assert.equal(fs.readFileSync(oldPath, "utf8"), oldBody);
+  assert.equal(fs.readFileSync(newPath, "utf8"), newBody);
+});
+
+test("doctor：正文有日期但没有 date 时提示，并且不改文件", () => {
+  const dir = tmp();
+  const body = "# 周会\n\n## 2026-04-10 周会\n\n部署方案评审通过。\n";
+  const marked = "---\ndate: 2026-03-02\n---\n# 选型\n\n## 2026-03-02 选型\n\n定了 SQLite。\n";
+  const p = write(dir, "meet.md", body);
+  write(dir, "decision.md", marked);
+  const hints = runDoctor([dir]).report.filter(x => x.type === "missing_date");
+  assert.deepEqual(hints.map(x => x.file), ["meet.md"]);
+  assert.match(hints[0].detail, /没有 date 字段/);
+  assert.equal(fs.readFileSync(p, "utf8"), body);
+});
+
 test("结果日期跟随 TZ 的本地日历日", async () => {
   const dir = tmp();
   write(dir, "tz.md", "# 时区\n\n部署时区测试唯一词。\n", new Date("2026-01-01T16:30:00.000Z"));

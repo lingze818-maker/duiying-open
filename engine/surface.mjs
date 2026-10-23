@@ -52,7 +52,10 @@ if (DOCTOR) {
   } else {
     console.log(`[doctor] 语料 ${count} 篇 · ${report.length} 项警示：\n`);
     for (const r of report) {
-      const tag = { broken_link: "坏链", near_duplicate: "疑似重复", title_quality: "标题质量", suppressed_list: "沉默中" }[r.type] || r.type;
+      const tag = {
+        broken_link: "坏链", near_duplicate: "疑似重复", title_quality: "标题质量",
+        suppressed_list: "沉默中", missing_date: "缺日期",
+      }[r.type] || r.type;
       console.log(`  [${tag}] ${r.file} — ${r.detail}`);
     }
     console.log(`\ndoctor 报告供深度清理参考——日常检索已自动降噪，是否处理由你决定。`);

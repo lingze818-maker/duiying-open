@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, overlapRatio, formatLocalDate } from "../engine/lib.mjs";
+import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, overlapRatio, formatLocalDate, parseMemoryDate, memoryInstant, bodyHasCalendarDate } from "../engine/lib.mjs";
 
 // ---- tokenize ----
 test("tokenize: CJK 切 bigram", () => {
@@ -62,6 +62,35 @@ test("hasTimeWord: 识别时间词", () => {
 });
 test("formatLocalDate: 本地日历日", () => {
   assert.equal(formatLocalDate(new Date(2026, 0, 2, 1, 30, 0)), "2026-01-02");
+});
+test("parseMemoryDate: 只接受真实的 YYYY-MM-DD", () => {
+  assert.equal(parseMemoryDate("2026-04-10")?.iso, "2026-04-10");
+  assert.equal(parseMemoryDate("2026-04-10").ms, new Date(2026, 3, 10).getTime());
+  assert.equal(parseMemoryDate("2024-02-29")?.iso, "2024-02-29");
+  assert.equal(parseMemoryDate("2023-02-29"), null);
+  assert.equal(parseMemoryDate("2026-02-31"), null);
+  assert.equal(parseMemoryDate("2026-4-10"), null);
+  assert.equal(parseMemoryDate("2026/04/10"), null);
+  assert.equal(parseMemoryDate("2026-04-10T00:00:00"), null);
+  assert.equal(parseMemoryDate(""), null);
+  assert.equal(parseMemoryDate(20260410), null);
+});
+test("memoryInstant: 合法 date 优先，否则退回 mtime", () => {
+  const mtime = new Date(2026, 0, 2, 1, 30, 0);
+  const dated = memoryInstant(new Map([["date", "2026-04-10"]]), mtime);
+  assert.equal(dated.iso, "2026-04-10");
+  assert.equal(dated.ms, new Date(2026, 3, 10).getTime());
+  const fallback = memoryInstant(new Map([["date", "昨天"]]), mtime);
+  assert.equal(fallback.iso, "2026-01-02");
+  assert.equal(fallback.ms, mtime.getTime());
+  assert.equal(memoryInstant(new Map(), mtime).iso, "2026-01-02");
+});
+test("bodyHasCalendarDate: 只看正文，不把 frontmatter 里的时间戳当发生日", () => {
+  assert.equal(bodyHasCalendarDate("# 周会\n\n## 2026-04-10 周会\n"), true);
+  assert.equal(bodyHasCalendarDate("\uFEFF# 周会\n\n2026-04-10\n"), true);
+  assert.equal(bodyHasCalendarDate("---\ningested_at: 2026-04-10 12:00:00\n---\n# 无\n\n没有日历。\n"), false);
+  assert.equal(bodyHasCalendarDate("# 无\n\n2026-02-31 不是日子。\n"), false);
+  assert.equal(bodyHasCalendarDate(""), false);
 });
 test("overlapRatio: 短集合去比对长集合，而不是跟自己比", () => {
   const big = new Set(["部署", "回滚", "快照", "停服"]);

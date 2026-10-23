@@ -115,6 +115,20 @@ test("doctor: 多根同名文件不跨根判重，坏链按各自的根，file �
   assert.equal(broken.length, 1);
   assert.equal(broken[0].file, "/bank-b/note.md");
 });
+test("doctor: 正文有日期但没有 date 字段时提示，合法 date 不提示", () => {
+  const docs = [
+    { rel: "a.md", title: "周会", fm: new Map(), tokens: new Set(["部署"]), content: "# 周会\n\n## 2026-04-10 周会\n" },
+    { rel: "b.md", title: "已标", fm: new Map([["date", "2026-04-10"]]), tokens: new Set(["评审"]), content: "# 已标\n\n## 2026-03-02 选型\n" },
+    { rel: "c.md", title: "无日期", fm: new Map(), tokens: new Set(["浇水"]), content: "# 无日期\n\n没有日历日。\n" },
+    { rel: "d.md", title: "灌库", fm: new Map([["ingested_at", "2026-04-10 12:00:00"]]), tokens: new Set(["摘要"]), content: "---\ningested_at: 2026-04-10 12:00:00\n---\n# 灌库\n\n只有摘要。\n" },
+    { rel: "e.md", title: "写错", fm: new Map([["date", "2026/04/10"]]), tokens: new Set(["部署"]), content: "# 写错\n\n没有正文日期。\n" },
+  ];
+  const report = doctor(docs);
+  const hints = report.filter(r => r.type === "missing_date");
+  assert.deepEqual(hints.map(r => r.file), ["a.md", "e.md"]);
+  assert.match(hints[0].detail, /没有 date 字段/);
+  assert.match(hints[1].detail, /不是 YYYY-MM-DD/);
+});
 test("doctor: 沉默条目清单提醒——人工定期复核", () => {
   const docs = [
     { rel: "正常.md", title: "N", fm: new Map(), tokens: new Set(["a"]) },
