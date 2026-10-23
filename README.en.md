@@ -48,6 +48,8 @@ Frontends can be replaced. They can die. Your memory stays.
 | **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |
 | **doctor checkup** | `--doctor` reports broken links, near-duplicates, title quality, the silence list, and notes whose body has a `YYYY-MM-DD` but no `date` field. Search keeps the newer near-duplicate (that date, else mtime) and hides notes for missing targets. Files are never edited |
 | **Multi-frontend write** | Any MCP-connected frontend can contribute: summaries authored by the writer, content inlined or path-referenced, event/channel tags — switching frontends is just a breath |
+| **Surface gate** | Automatic injection (the hook, or MCP used as prefetch) can return nothing for greetings, bare emotion, or a topic-less short turn. A direct CLI search still runs |
+| **Lexical rerank** | When several notes hit, token overlap plus a substring bonus moves the closer wording forward. No embedding model |
 
 **No vector database. No graph database. No local models. No API keys.**
 Node 18 or newer. Nothing to install.
@@ -135,6 +137,12 @@ Run a checkup occasionally:
 ```bash
 node engine/surface.mjs --doctor --root ./my-memory
 ```
+
+## What lines up with the private engine
+
+Two retrieval ideas from the private Duiying stack are public here: a **surface gate** (on for automatic injection — greetings, bare emotion, and a short repeat can yield zero hits; `node engine/surface.mjs "…"` stays ungated unless you pass `--gate`) and a **lexical rerank** (token overlap + substring bonus, no new dependencies). Intents are rule-only: `memory_recall`, `open_chat`, `companion`.
+
+Companion distress handling, relationship intercepts, and private archives are **not** in this open tree. See the integration contract (Chinese) for flags.
 
 ## Philosophy
 

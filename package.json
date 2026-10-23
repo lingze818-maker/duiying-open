@@ -7,7 +7,7 @@
     "duiying": "engine/surface.mjs"
   },
   "scripts": {
-    "test": "node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs engine/ingest.test.js",
+    "test": "node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs engine/ingest.test.js",
     "demo": "node engine/surface.mjs \"部署,回滚\" --root examples/partner-xiaolin --detail"
   },
   "keywords": [
