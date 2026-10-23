@@ -20,7 +20,7 @@
  * 实现 initialize / tools/list / tools/call / ping——手写协议子集，无 SDK。
  */
 import path from "node:path";
-import { search, runDoctor } from "../engine/core.mjs";
+import { search, runDoctor, displayPath } from "../engine/core.mjs";
 import { ingest } from "../engine/ingest.mjs";
 
 const VERSION = "0.2.0";
@@ -112,7 +112,7 @@ function toolCall(name, args) {
     });
     let text = `当前：${r.time.line}\n命中 ${r.total} 条（显示 ${r.results.length}）\n${r.hint}\n`;
     for (const x of r.results) {
-      text += `\n- [${x.date}] ${x.title} —— ${x.path} (相关度 ${x.score})`;
+      text += `\n- [${x.date}] ${x.title} —— ${displayPath(x)} (相关度 ${x.score})`;
       if (x.links.length) text += `\n  关联: ${x.links.join(", ")}`;
       if (x.note) text += `\n  ${x.note}`;
       if (x.excerpt) text += `\n  摘录: ${x.excerpt}`;

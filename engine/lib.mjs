@@ -69,6 +69,21 @@ export function formatLocalDate(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/**
+ * 多个语料根里可以有相同的相对路径。带 root 时身份是「根 + 相对路径」，
+ * 否则仍是相对路径（单根，以及不带根的纯函数调用）。
+ */
+export function memoryKey(d) {
+  if (d?.root) return `${d.root}\0${d.rel}`;
+  return d.rel;
+}
+
+/** 把语料根和相对路径拼成可打开的位置。无根时原样返回相对路径。 */
+export function joinRoot(root, rel) {
+  if (!root) return rel;
+  return `${String(root).replace(/\/+$/, "")}/${rel}`;
+}
+
 /** 重合度 |A∩B| / min(|A|,|B|)。空集为 0。建链、doctor、检索降噪必须共用这一份。 */
 export function overlapRatio(a, b) {
   if (!a?.size || !b?.size) return 0;
@@ -180,8 +195,8 @@ export function isSuppressed(fm, query = []) {
 /**
  * 记忆状态应用（⑥取代 + ⑦沉默）——"取代而非删除，沉默而非抹除"。
  *
- * docs: [{rel, score, fm, ...}]（就地降权）；opts.query: 关键词数组（suppress_when 用）
- * 返回 { kept: 保留并可能已降权的条目, notes: Map<rel, 附注文案> }
+ * docs: [{rel, root?, score, fm, ...}]（就地降权）；opts.query: 关键词数组（suppress_when 用）
+ * 返回 { kept: 保留并可能已降权的条目, notes: Map<memoryKey, 附注文案> }
  */
 export function applyMemoryState(docs, opts = {}) {
   const query = opts.query || [];
@@ -194,7 +209,7 @@ export function applyMemoryState(docs, opts = {}) {
     const sup = fm.get("superseded_by");
     if (typeof sup === "string" && sup) {
       d.score *= 0.5;
-      notes.set(d.rel, `此条已被取代，见 ${sup}`);
+      notes.set(memoryKey(d), `此条已被取代，见 ${sup}`);
     }
     kept.push(d);
   }
@@ -203,36 +218,46 @@ export function applyMemoryState(docs, opts = {}) {
 
 /**
  * ⑧ doctor 体检——纯规则无 LLM；报告供人工深度清理，检索层另自动应用安全降噪。
- * docs: [{rel, title, fm, tokens: Set}] → 报告数组 [{type, file, detail}]
+ * docs: [{rel, title, fm, tokens: Set, root?}] → 报告数组 [{type, file, detail}]
+ * 多个 root 时 file（以及近重复对照名）带上根目录；近重复只在同一个根内比较。
  */
 export function doctor(docs) {
   const report = [];
   const relsByRoot = new Map();
+  const roots = new Set();
   for (const d of docs) {
     const root = d.root ?? "";
+    if (d.root) roots.add(d.root);
     if (!relsByRoot.has(root)) relsByRoot.set(root, new Set());
     relsByRoot.get(root).add(d.rel);
   }
+  const multi = roots.size > 1;
+  const label = d => (multi ? joinRoot(d.root, d.rel) : d.rel);
   for (const d of docs) {
     const fm = d.fm || new Map();
     const sup = fm.get("superseded_by");
     const rels = relsByRoot.get(d.root ?? "");
     if (typeof sup === "string" && sup && !rels.has(sup)) {
-      report.push({ type: "broken_link", file: d.rel, detail: `superseded_by 指向的 ${sup} 不存在` });
+      report.push({ type: "broken_link", file: label(d), detail: `superseded_by 指向的 ${sup} 不存在` });
     }
     if (!d.title || d.title.length > 40) {
-      report.push({ type: "title_quality", file: d.rel, detail: d.title ? `标题超长(${d.title.length}字)——路标式注入质量受损` : "无标题" });
+      report.push({ type: "title_quality", file: label(d), detail: d.title ? `标题超长(${d.title.length}字)——路标式注入质量受损` : "无标题" });
     }
     if (String(fm.get("suppress") ?? "").toLowerCase() === "true") {
-      report.push({ type: "suppressed_list", file: d.rel, detail: "此篇整篇沉默中——请定期人工复核是否解禁" });
+      report.push({ type: "suppressed_list", file: label(d), detail: "此篇整篇沉默中——请定期人工复核是否解禁" });
     }
   }
-  // 近重复检测：两两 token 重合度 ≥ 0.75（与检索降噪同一公式）
+  // 近重复检测：两两 token 重合度 ≥ 0.75（与检索降噪同一公式）。只比同一个根。
   for (let i = 0; i < docs.length; i++) {
     for (let j = i + 1; j < docs.length; j++) {
+      if ((docs[i].root ?? "") !== (docs[j].root ?? "")) continue;
       const ratio = overlapRatio(docs[i].tokens, docs[j].tokens);
       if (ratio >= 0.75) {
-        report.push({ type: "near_duplicate", file: docs[i].rel, detail: `与 ${docs[j].rel} 高度重合(${Math.round(ratio * 100)}%)——考虑合并或 superseded_by` });
+        report.push({
+          type: "near_duplicate",
+          file: label(docs[i]),
+          detail: `与 ${label(docs[j])} 高度重合(${Math.round(ratio * 100)}%)——考虑合并或 superseded_by`,
+        });
       }
     }
   }

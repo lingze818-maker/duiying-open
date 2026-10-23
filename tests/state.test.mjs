@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseFrontmatter, applyMemoryState, doctor } from "../engine/lib.mjs";
+import { parseFrontmatter, applyMemoryState, doctor, memoryKey } from "../engine/lib.mjs";
 
 // ---- ⑥ frontmatter 解析（零依赖 YAML 子集：key: value / key: [a, b]）----
 test("parseFrontmatter: 解析 superseded_by 与 suppress 字段", () => {
@@ -38,7 +38,18 @@ test("superseded: 被取代条目降权并附注", () => {
   assert.ok(docs[0].score < 10, "被取代条目应降权");
   assert.ok(docs[0].score > 0, "但不应消失——取代而非删除");
   assert.ok(notes.get("旧方案.md").includes("新方案.md"), "附注指向取代者");
+  assert.equal(notes.get(memoryKey(docs[0])), notes.get("旧方案.md"));
   assert.equal(docs[1].score, 8, "正常条目不动");
+});
+test("superseded: 不同根的同名文件各有附注", () => {
+  const docs = [
+    { root: "/bank-a", rel: "note.md", score: 10, fm: new Map([["superseded_by", "next.md"]]) },
+    { root: "/bank-b", rel: "note.md", score: 10, fm: new Map([["superseded_by", "other.md"]]) },
+  ];
+  const { notes } = applyMemoryState(docs);
+  assert.match(notes.get(memoryKey(docs[0])), /next\.md/);
+  assert.match(notes.get(memoryKey(docs[1])), /other\.md/);
+  assert.notEqual(notes.get(memoryKey(docs[0])), notes.get(memoryKey(docs[1])));
 });
 
 // ---- ⑦ 沉默列表：浮不上来 ≠ 删掉 ----
@@ -85,6 +96,24 @@ test("doctor: 重复检测——高重合度条目警示", () => {
   ];
   const report = doctor(docs);
   assert.ok(report.some(r => r.type === "near_duplicate"));
+});
+test("doctor: 多根同名文件不跨根判重，坏链按各自的根，file 带根", () => {
+  const shared = new Set(["部署", "回滚", "快照", "停服"]);
+  const docs = [
+    { root: "/bank-a", rel: "note.md", title: "A", fm: new Map([["superseded_by", "next.md"]]), tokens: shared },
+    { root: "/bank-a", rel: "next.md", title: "A 的新方案", fm: new Map(), tokens: new Set(["新方", "方案"]) },
+    { root: "/bank-b", rel: "note.md", title: "B", fm: new Map([["superseded_by", "next.md"]]), tokens: shared },
+    { root: "/bank-a", rel: "copy.md", title: "副本", fm: new Map(), tokens: new Set(["部署", "回滚", "快照", "停服", "备份"]) },
+  ];
+  const report = doctor(docs);
+  assert.equal(report.some(r => r.type === "near_duplicate" && r.file.includes("bank-b")), false);
+  const dup = report.find(r => r.type === "near_duplicate");
+  assert.equal(dup.file, "/bank-a/note.md");
+  assert.match(dup.detail, /\/bank-a\/copy\.md/);
+  assert.doesNotMatch(dup.detail, /bank-b/);
+  const broken = report.filter(r => r.type === "broken_link");
+  assert.equal(broken.length, 1);
+  assert.equal(broken[0].file, "/bank-b/note.md");
 });
 test("doctor: 沉默条目清单提醒——人工定期复核", () => {
   const docs = [

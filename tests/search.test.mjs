@@ -176,6 +176,75 @@ test("MCP：字符串 root 生效，无命中仍带时间锚", () => {
   assert.match(missText, /没有命中/);
 });
 
+test("多根：同名文件不串附注、不跨根去重，结果带 root", async () => {
+  const a = tmp();
+  const b = tmp();
+  const body = "部署方案回滚流程快照停服完全一样的跨库正文。";
+  write(a, "note.md", `---\nsuperseded_by: next.md\n---\n# A\n\n${body}\n`);
+  write(a, "next.md", "# A 的新方案\n\n新方案在 A。\n");
+  write(b, "note.md", `---\nsuperseded_by: other.md\n---\n# B\n\n${body}\n`);
+  write(b, "other.md", "# B 的新方案\n\n新方案在 B。\n");
+  write(a, "gap.md", "---\nsuperseded_by: missing.md\n---\n# 缺口A\n\n部署方案回滚流程只在 A 断链。\n");
+  write(b, "gap.md", "---\nsuperseded_by: missing.md\n---\n# 缺口B\n\n部署方案回滚流程只在 B 断链。\n");
+
+  const resolved = dir => path.resolve(dir).split(path.sep).join("/");
+  const r = search({
+    roots: [a, b], keywords: ["部署方案回滚流程"], useLinks: false, limit: 10,
+  });
+  const notes = r.results.filter(x => x.path === "note.md");
+  assert.equal(notes.length, 2, JSON.stringify(r.results));
+  const byTitle = Object.fromEntries(notes.map(x => [x.title, x]));
+  assert.match(byTitle.A.note, /next\.md/);
+  assert.doesNotMatch(byTitle.A.note, /other\.md/);
+  assert.match(byTitle.B.note, /other\.md/);
+  assert.doesNotMatch(byTitle.B.note, /next\.md/);
+  assert.equal(byTitle.A.root, resolved(a));
+  assert.equal(byTitle.B.root, resolved(b));
+  assert.equal(byTitle.A.path, "note.md");
+  const single = search({ roots: [a], keywords: ["部署方案回滚流程"], useLinks: false });
+  assert.equal("root" in single.results[0], false);
+
+  const report = runDoctor([a, b]).report;
+  const cross = report.filter(x => x.type === "near_duplicate");
+  assert.equal(cross.length, 0, JSON.stringify(report));
+  const gaps = report.filter(x => x.type === "broken_link" && x.file.endsWith("/gap.md"));
+  assert.equal(gaps.length, 2, JSON.stringify(report));
+  assert.notEqual(gaps[0].file, gaps[1].file);
+  assert.ok(gaps.some(x => x.file === `${resolved(a)}/gap.md`));
+  assert.ok(gaps.some(x => x.file === `${resolved(b)}/gap.md`));
+  assert.ok(report.every(x => x.file !== "note.md" && x.file !== "gap.md"));
+
+  const { stdout } = await run(process.execPath, [
+    ENGINE, "部署方案回滚流程", "--root", a, "--root", b, "--json", "--no-links",
+  ]);
+  const parsed = JSON.parse(stdout);
+  const cliNotes = parsed.results.filter(x => x.path === "note.md");
+  assert.equal(cliNotes.length, 2);
+  assert.ok(cliNotes.every(x => x.root && x.path === "note.md"));
+  const doctor = await run(process.execPath, [ENGINE, "--doctor", "--root", a, "--root", b]);
+  assert.doesNotMatch(doctor.stdout, /与 note\.md /);
+  assert.match(doctor.stdout, new RegExp(resolved(a).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "/gap\\.md"));
+  assert.match(doctor.stdout, new RegExp(resolved(b).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "/gap\\.md"));
+});
+
+test("多根：links 不指向另一个根的同名文件", () => {
+  const a = tmp();
+  const b = tmp();
+  const shared = "项目周会纪要快照演练流程数据库备份停服容器编排评审部署方案";
+  write(a, "topic.md", `# A主题\n\n部署方案在 A。\n${shared}\n`);
+  write(b, "topic.md", `# B主题\n\n部署方案在 B。\n${shared}\n`);
+  const r = search({ roots: [a, b], keywords: ["部署方案"], limit: 10 });
+  const aTopic = r.results.find(x => x.path === "topic.md" && x.title.startsWith("A"));
+  assert.ok(aTopic, JSON.stringify(r.results));
+  assert.equal(aTopic.links.includes("topic.md"), false, JSON.stringify(aTopic.links));
+  for (const hit of r.results) {
+    for (const link of hit.links) {
+      assert.equal(link.includes("/") || link.includes("\\"), false);
+      assert.ok(fs.existsSync(path.join(hit.root, link)), `${hit.root} + ${link}`);
+    }
+  }
+});
+
 test("钩子：未配置排除时不隐藏目录", () => {
   const dir = tmp();
   write(dir, path.join("蒸馏数据", "note.md"), "# 蒸馏\n\n钩子唯一标记词。\n");
