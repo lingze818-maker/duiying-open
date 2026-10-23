@@ -7,7 +7,7 @@ import path from "node:path";
 import {
   tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
   parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
-  overlapRatio, isSuppressed, formatLocalDate,
+  overlapRatio, isSuppressed, formatLocalDate, memoryKey, joinRoot,
 } from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
@@ -31,11 +31,20 @@ function landmarkTitle(content, file, fm) {
   return typeof custom === "string" && custom.trim() ? custom.trim() : heading;
 }
 
+function resolvedRoot(root) {
+  return path.resolve(root).split(path.sep).join("/");
+}
+
+/** 文本输出用：多根时带上根目录，单根仍是相对路径。 */
+export function displayPath(result) {
+  return joinRoot(result?.root, result?.path ?? "");
+}
+
 /** 语料扫描（search 与 runDoctor 共用）。 */
 function collectDocs(roots, skip) {
   const docs = [];
   for (const root of roots) {
-    const rootFwd = path.resolve(root).split(path.sep).join("/");
+    const rootFwd = resolvedRoot(root);
     for (const file of walk(root, skip)) {
       let content;
       try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
@@ -105,14 +114,15 @@ function rankCompare(a, b) {
 }
 
 /**
- * 近重复只留较新的一条。重合度与 doctor 相同；
- * 必须拿较小集合去比对另一份，不能跟自己比（否则更短的文档一律像 100% 重复）。
+ * 近重复只留较新的一条，且只在同一个语料根里比。
+ * 重合度与 doctor 相同；必须拿较小集合去比对另一份，不能跟自己比
+ * （否则更短的文档一律像 100% 重复）。
  */
 function dedupeNear(pool) {
   const kept = [];
   for (const r of pool) {
     const tokens = new Set(r.d.tf.keys());
-    const idx = kept.findIndex(k => overlapRatio(k._tok, tokens) >= NEAR_DUP);
+    const idx = kept.findIndex(k => k.d.root === r.d.root && overlapRatio(k._tok, tokens) >= NEAR_DUP);
     const fresh = { ...r, _tok: tokens };
     if (idx === -1) { kept.push(fresh); continue; }
     const prev = kept[idx];
@@ -137,10 +147,12 @@ function displayTitle(title) {
  *   detail?: boolean           附命中摘录（默认 false）
  *   nowMs?: number             时间基准（测试注入用）
  *   exclude?: string[]         目录名排除表（默认 SKIP_DIRS；含蒸馏工作区等结构性语料时传）
- * @returns {object} { total, hint, results: [{path,title,date,score,links,note?,excerpt?}] }
+ * @returns {object} { total, hint, results: [{path,root?,title,date,score,links,note?,excerpt?}] }
+ *   多个根时每条带 root（解析后的绝对路径）；path 与 links 相对该根。
  */
 export function search(opts) {
   const roots = opts.roots;
+  const multiRoot = new Set(roots.map(resolvedRoot)).size > 1;
   const keywords = opts.keywords;
   const limit = opts.limit ?? 10;
   const useLinks = opts.useLinks ?? true;
@@ -202,7 +214,7 @@ export function search(opts) {
   const notes = new Map();
   if (positives.length) {
     const { kept, notes: n } = applyMemoryState(
-      positives.map(r => ({ rel: r.d.rel, score: r.score, fm: r.d.fm, idx: r.idx })),
+      positives.map(r => ({ rel: r.d.rel, root: r.d.root, score: r.score, fm: r.d.fm, idx: r.idx })),
       { query: silenceQuery },
     );
     const scoreOf = new Map(kept.map(k => [k.idx, k.score]));
@@ -219,7 +231,10 @@ export function search(opts) {
     relsByRoot.get(d.root).add(d.rel);
   }
   const top = visible.slice(0, limit);
-  const linksOf = r => (links ? (links[r.idx] || []).map(([j]) => docs[j].rel) : []);
+  // links 必须能在该条的 root 下打开。跨根邻居只参与扩散，不写进链接。
+  const linksOf = r => (links ? (links[r.idx] || [])
+    .filter(([j]) => docs[j].root === r.d.root)
+    .map(([j]) => docs[j].rel) : []);
 
   return {
     time: timeAnchor(nowMs),
@@ -228,14 +243,16 @@ export function search(opts) {
     results: top.map(r => {
       const out = {
         path: r.d.rel,
+        ...(multiRoot ? { root: r.d.root } : {}),
         title: displayTitle(r.d.title),
         date: formatLocalDate(r.d.mtime),
         score: Math.round(r.score * 10) / 10,
         links: linksOf(r),
       };
       const sup = r.d.fm.get("superseded_by");
-      if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && notes.has(r.d.rel)) {
-        out.note = notes.get(r.d.rel);
+      const note = notes.get(memoryKey(r.d));
+      if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && note) {
+        out.note = note;
       }
       if (detail) out.excerpt = hitLine(r.d.content, expanded) ?? displayTitle(r.d.title);
       return out;

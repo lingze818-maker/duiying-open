@@ -7,7 +7,7 @@
  *   node surface.mjs --doctor [--root <语料目录>]...
  */
 import fs from "node:fs";
-import { search, runDoctor } from "./core.mjs";
+import { search, runDoctor, displayPath } from "./core.mjs";
 
 const argv = process.argv.slice(2);
 const positional = [];
@@ -79,7 +79,7 @@ if (AS_JSON) {
   md += `命中文件: ${result.total} · 展示 top ${result.results.length}\n\n`;
   md += `> ${result.hint}\n\n`;
   for (const r of result.results) {
-    md += `- [${r.date}] ${r.title} —— ${r.path} (s${Math.round(r.score)})\n`;
+    md += `- [${r.date}] ${r.title} —— ${displayPath(r)} (s${Math.round(r.score)})\n`;
     if (r.links.length) md += `  ↳ 关联: ${r.links.join(", ")}\n`;
     if (r.note) md += `  ↳ ${r.note}\n`;
     if (r.excerpt) md += `  > ${r.excerpt}\n`;

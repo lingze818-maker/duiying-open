@@ -54,11 +54,11 @@ async function main() {
   if (!roots.length) return;
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
-  const { search } = await import(coreUrl);
+  const { search, displayPath } = await import(coreUrl);
   const r = search({ roots, keywords: prompt.split(/\s+/).filter(Boolean), limit: 5, detail: false, exclude });
   if (!r.results.length) return;
 
-  const lines = r.results.map(x => `- [${x.date}] ${x.title} —— ${x.path}`);
+  const lines = r.results.map(x => `- [${x.date}] ${x.title} —— ${displayPath(x)}`);
   const ctx =
     `[记忆上浮 · 共享库自动检索]（与当前消息可能相关的长期记忆线索；自然引用，除非对方问起不要罗列）\n` +
     lines.join("\n");
