@@ -17,7 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { flagEnabled } from "../engine/lib.mjs";
+import { flagEnabled, promptKeywords } from "../engine/lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -57,22 +57,27 @@ async function main() {
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
   const { search, displayPath } = await import(coreUrl);
-  // 自动注入默认走门控。DUIYING_GATE=0 可关。关键词仍按空白切——整句中文不在这里拆。
+  // 自动注入默认走门控。DUIYING_GATE=0 可关。
+  // 中文整句按虚词切开，并带上命中行——和「部署,回滚」这种关键词检索同一行，而不是只剩标题。
   const gate = flagEnabled(process.env.DUIYING_GATE, true);
   const rerank = flagEnabled(process.env.DUIYING_RERANK, true);
   const r = search({
     roots,
-    keywords: prompt.split(/\s+/).filter(Boolean),
+    keywords: promptKeywords(prompt),
     queryText: prompt,
     limit: 5,
-    detail: false,
+    detail: true,
     exclude,
     gate,
     rerank,
   });
   if (!r.results.length) return;
 
-  const lines = r.results.map(x => `- [${x.date}] ${x.title} —— ${displayPath(x)}`);
+  const lines = r.results.map(x => {
+    const head = `- [${x.date}] ${x.title} —— ${displayPath(x)}`;
+    if (!x.excerpt || x.excerpt === x.title) return head;
+    return `${head}\n  ${x.excerpt}`;
+  });
   const ctx =
     `[记忆上浮 · 共享库自动检索]（与当前消息可能相关的长期记忆线索；自然引用，除非对方问起不要罗列）\n` +
     lines.join("\n");

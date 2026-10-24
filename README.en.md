@@ -40,9 +40,9 @@ Frontends can be replaced. They can die. Your memory stays.
 | Capability | What it does |
 |---|---|
 | **BM25 + exact-phrase fusion** | CJK handled via character bigrams — no tokenizer needed; whole-phrase hits score separately |
-| **Time prior** | Recent memories surface naturally; queries like "recently" switch to time-first mode. Optional frontmatter `date: YYYY-MM-DD` is the day it happened; otherwise the file's mtime is used |
+| **Time prior** | Recent memories surface naturally; queries like "recently" switch to time-first mode. A query that is only a time word lists the newest notes by the day they happened. Optional frontmatter `date: YYYY-MM-DD` is that day; otherwise the file's mtime is used |
 | **Associative surfacing** | Notes auto-link; one hit pulls its neighbors in — "deployment" recalls March's architecture decision |
-| **Supersede, don't delete** | Outdated notes keep a `superseded_by` marker — down-weighted, with a pointer to the successor |
+| **Supersede, don't delete** | Outdated notes keep a `superseded_by` marker — down-weighted, with a pointer to the successor. In a note split into several decisions, only a decision the successor actually restates is marked |
 | **Silence list** | `suppress` / `suppress_when` — some memories shouldn't come up, but *not surfacing ≠ deleting* |
 | **Landmark injection** | One line per cue — the same token budget carries more memories |
 | **Never a recital machine** | Results ship with an injection hint: *surface memories only when asked or relevant* |

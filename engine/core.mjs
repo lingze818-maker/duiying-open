@@ -9,6 +9,7 @@ import {
   parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
   overlapRatio, isSuppressed, formatLocalDate, memoryInstant, memoryKey, joinRoot,
   classifyIntent, anchorKeywords, lexicalScore, isDuplicateQuery, markSurfaced, GATE_TTL_MS,
+  isTimeOnlyQuery, supersessionApplies,
 } from "./lib.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
@@ -247,7 +248,9 @@ export function search(opts) {
   const expanded = expandSynonyms(keywords);
   const silenceQuery = expanded.map(k => k.toLowerCase());
   const qTokens = [...new Set(expanded.flatMap(k => tokenize(k)))];
-  const timeMode = hasTimeWord(keywords.join(" "));
+  const timeMode = hasTimeWord(queryText);
+  // 只有时间词时，词面没有锚点，不能等 BM25 命中再加权。按记忆发生日把最近的笔记列出来。
+  const timeOnly = isTimeOnlyQuery(queryText);
 
   const scored = docs.map((d, idx) => {
     const bm = bm25(qTokens, d, stats);
@@ -276,15 +279,31 @@ export function search(opts) {
     scored.filter(r => isSuppressed(r.d.fm, silenceQuery)).map(r => r.idx),
   );
 
+  if (timeOnly) {
+    for (const r of scored) {
+      if (silenced.has(r.idx)) {
+        r.score = 0;
+        r.lexical = 0;
+        continue;
+      }
+      const boost = timeBoost(r.d.when.ms, nowMs, true);
+      r.score = boost;
+      r.lexical = boost;
+    }
+  }
+
   let links = null;
   if (useLinks) {
     const raw = buildLinks(docs.map(d => new Set(d.tf.keys())));
     // 沉默条目不扩散、也不作为邻居被带出——浮不上来包括联想链。
     links = raw.map((row, i) => silenced.has(i) ? [] : row.filter(([j]) => !silenced.has(j)));
-    const arr = scored.map(r => silenced.has(r.idx) ? 0 : r.score);
-    spread(arr, links);
-    scored.forEach((r, i) => { r.score = arr[i]; });
-  } else {
+    // 只问时间时按发生日排，联想扩散会把顺序打乱。链仍然留下，供结果里的关联。
+    if (!timeOnly) {
+      const arr = scored.map(r => silenced.has(r.idx) ? 0 : r.score);
+      spread(arr, links);
+      scored.forEach((r, i) => { r.score = arr[i]; });
+    }
+  } else if (!timeOnly) {
     for (const r of scored) if (silenced.has(r.idx)) r.score = 0;
   }
 
@@ -294,9 +313,22 @@ export function search(opts) {
 
   let pool = positives;
   const notes = new Map();
+  const docByKey = new Map(docs.map(d => [memoryKey(d), d]));
+  // 多段笔记：继任篇没重述的那一条，不沿用整篇 superseded_by 的降权和附注。
+  const fmForState = d => {
+    const fm = d.fm || new Map();
+    const sup = fm.get("superseded_by");
+    if (typeof sup !== "string" || !sup) return fm;
+    const successor = docByKey.get(memoryKey({ root: d.root, rel: sup }));
+    if (!successor) return fm;
+    if (supersessionApplies(d.content, successor.content, expanded)) return fm;
+    const copy = new Map(fm);
+    copy.delete("superseded_by");
+    return copy;
+  };
   if (positives.length) {
     const { kept, notes: n } = applyMemoryState(
-      positives.map(r => ({ rel: r.d.rel, root: r.d.root, score: r.score, fm: r.d.fm, idx: r.idx })),
+      positives.map(r => ({ rel: r.d.rel, root: r.d.root, score: r.score, fm: fmForState(r.d), idx: r.idx })),
       { query: silenceQuery },
     );
     const scoreOf = new Map(kept.map(k => [k.idx, k.score]));
@@ -306,7 +338,8 @@ export function search(opts) {
     for (const [k, v] of n) notes.set(k, v);
   }
 
-  if (opts.rerank !== false) applyLexicalRerank(pool, keywords.join("\n"));
+  // 只问时间时顺序就是发生日。词面重排会把正文里碰巧写了时间词的一篇抬到更新的笔记前面。
+  if (opts.rerank !== false && !timeOnly) applyLexicalRerank(pool, keywords.join("\n"));
 
   const visible = dedupeNear(pool);
   const relsByRoot = new Map();

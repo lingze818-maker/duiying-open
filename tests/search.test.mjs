@@ -317,6 +317,83 @@ test("多根：links 不指向另一个根的同名文件", () => {
   }
 });
 
+test("只有时间词时按记忆发生日返回最近笔记，带词面的时间查询不改走这条", () => {
+  const dir = tmp();
+  const now = new Date(2026, 9, 23, 12, 0, 0);
+  write(dir, "newer-date.md", "---\ndate: 2026-10-20\n---\n# 较新\n\n荔枝龙眼。\n", new Date(2019, 0, 1));
+  write(dir, "older-date.md", "---\ndate: 2026-10-01\n---\n# 稍旧\n\n草莓柚子。\n", new Date(2026, 9, 22));
+  write(dir, "mid.md", "---\ndate: 2026-06-01\n---\n# 中\n\n橘子葡萄。\n", new Date(2020, 0, 1));
+  write(dir, "ancient.md", "# 旧事\n\n苹果香蕉。\n", new Date(2024, 0, 1));
+  write(dir, "quiet.md", "---\nsuppress: true\n---\n# 沉默\n\n西瓜。\n", now);
+  const recent = search({
+    roots: [dir], keywords: ["最近"], queryText: "最近", nowMs: now.getTime(), limit: 10,
+  });
+  assert.deepEqual(recent.results.map(x => x.path), ["newer-date.md", "older-date.md", "mid.md", "ancient.md"]);
+  assert.equal(recent.results.some(x => x.path === "quiet.md"), false);
+  const lexical = search({
+    roots: [dir], keywords: ["最近的草莓"], queryText: "最近的草莓",
+    useLinks: false, nowMs: now.getTime(),
+  });
+  assert.deepEqual(lexical.results.map(x => x.path), ["older-date.md"]);
+});
+
+test("多段笔记：继任篇没重述的事实不标已被取代，重述过的部署方案仍标", () => {
+  const dir = tmp();
+  write(dir, "old.md", `---
+superseded_by: next.md
+---
+# 记录
+
+## 选型
+定了用 SQLite，手写 SQL。
+
+## 部署方案
+回滚流程：先停服务，再还原快照。
+`);
+  write(dir, "next.md", "# 纪要\n\n部署方案评审通过，回滚流程补了自动化。\n");
+  const sqlite = search({ roots: [dir], keywords: ["SQLite"], useLinks: false });
+  assert.equal(sqlite.results[0].path, "old.md");
+  assert.equal(sqlite.results[0].note, undefined);
+  const sql = search({ roots: [dir], keywords: ["手写 SQL"], useLinks: false });
+  assert.equal(sql.results.find(x => x.path === "old.md").note, undefined);
+  const deploy = search({ roots: [dir], keywords: ["部署"], useLinks: false });
+  assert.match(deploy.results.find(x => x.path === "old.md").note, /next\.md/);
+});
+
+test("示例库：只问最近有笔记，SQLite 与手写 SQL 不标已被取代", () => {
+  const recent = search({ roots: [EXAMPLE], keywords: ["最近"], queryText: "最近", limit: 10 });
+  assert.equal(recent.total, 3);
+  assert.equal(recent.results.find(x => x.path === "决策记录.md").note, undefined);
+  const lexical = search({ roots: [EXAMPLE], keywords: ["最近的部署"], queryText: "最近的部署", limit: 10 });
+  assert.ok(lexical.results.some(x => x.path === "会议纪要.md"));
+  assert.ok(lexical.results.findIndex(x => x.path === "会议纪要.md")
+    < lexical.results.findIndex(x => x.path === "决策记录.md"));
+  for (const q of [["SQLite"], ["手写 SQL"]]) {
+    const hit = search({ roots: [EXAMPLE], keywords: q, limit: 10 }).results.find(x => x.path === "决策记录.md");
+    assert.ok(hit, q.join(","));
+    assert.equal(hit.note, undefined, q.join(","));
+  }
+  const deploy = search({ roots: [EXAMPLE], keywords: ["部署"], limit: 10 });
+  assert.match(deploy.results.find(x => x.path === "决策记录.md").note, /会议纪要\.md/);
+});
+
+test("钩子：中文整句注入和关键词检索同一条命中行", () => {
+  const cli = search({
+    roots: [EXAMPLE], keywords: ["部署", "回滚"], detail: true, limit: 5,
+  });
+  const line = cli.results.find(x => x.path === "会议纪要.md").excerpt;
+  assert.match(line, /部署方案评审通过，回滚流程补了快照自动化/);
+  const res = spawnSync(process.execPath, [HOOK], {
+    input: JSON.stringify({ prompt: "我们上次怎么定的部署和回滚" }),
+    encoding: "utf8",
+    env: { ...process.env, DUIYING_HOOK_ROOTS: EXAMPLE, DUIYING_GATE: "1" },
+  });
+  assert.equal(res.status, 0);
+  assert.match(res.stdout, /会议纪要\.md/);
+  assert.match(res.stdout, /部署方案评审通过，回滚流程补了快照自动化/);
+  assert.equal(res.stdout.includes(line), true);
+});
+
 test("钩子：未配置排除时不隐藏目录", () => {
   const dir = tmp();
   write(dir, path.join("蒸馏数据", "note.md"), "# 蒸馏\n\n钩子唯一标记词。\n");

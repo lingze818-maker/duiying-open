@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, overlapRatio, formatLocalDate, parseMemoryDate, memoryInstant, bodyHasCalendarDate } from "../engine/lib.mjs";
+import { tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread, overlapRatio, formatLocalDate, parseMemoryDate, memoryInstant, bodyHasCalendarDate, isTimeOnlyQuery, promptKeywords, claimAnchors } from "../engine/lib.mjs";
 
 // ---- tokenize ----
 test("tokenize: CJK 切 bigram", () => {
@@ -59,6 +59,25 @@ test("hasTimeWord: 识别时间词", () => {
   assert.ok(hasTimeWord("what changed recently"));
   assert.ok(hasTimeWord("last week"));
   assert.equal(hasTimeWord("deployment"), false);
+});
+test("isTimeOnlyQuery: 只有时间词才按时间取笔记", () => {
+  assert.equal(isTimeOnlyQuery("最近"), true);
+  assert.equal(isTimeOnlyQuery("最近的"), true);
+  assert.equal(isTimeOnlyQuery("上周"), true);
+  assert.equal(isTimeOnlyQuery("以前"), true);
+  assert.equal(isTimeOnlyQuery("last week"), true);
+  assert.equal(isTimeOnlyQuery("最近的部署"), false);
+  assert.equal(isTimeOnlyQuery("last week deploy"), false);
+  assert.equal(isTimeOnlyQuery("部署"), false);
+  assert.deepEqual(claimAnchors(["最近的部署"]), ["部署"]);
+  assert.deepEqual(claimAnchors(["手写 SQL"]), ["手写", "sql"]);
+});
+test("promptKeywords: 中文整句切出实词，而不是整句一个词", () => {
+  assert.deepEqual(promptKeywords("我们上次怎么定的部署和回滚"), ["部署", "回滚"]);
+  assert.deepEqual(promptKeywords("记得上次部署"), ["部署"]);
+  assert.deepEqual(promptKeywords("部署,回滚"), ["部署", "回滚"]);
+  assert.deepEqual(promptKeywords("钩子唯一标记词"), ["钩子唯一标记词"]);
+  assert.deepEqual(promptKeywords("最近"), []);
 });
 test("formatLocalDate: 本地日历日", () => {
   assert.equal(formatLocalDate(new Date(2026, 0, 2, 1, 30, 0)), "2026-01-02");
