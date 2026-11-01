@@ -1,6 +1,6 @@
 {
   "name": "duiying-open",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "对影 · 人机搭档记忆库 —— 纯本地、零依赖的记忆上浮引擎（开源版）",
   "type": "module",
   "bin": {

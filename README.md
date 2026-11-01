@@ -66,13 +66,27 @@ cd duiying-open
 node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail
 ```
 
-输出长这样：
+输出长这样（与下面的动图同一次实跑；重跑时只有首行时钟会变）：
 
 ```
-- [2026-03-15] 项目决策记录 —— 决策记录.md (s9)
+# 记忆上浮 · 2026-11-01 星期日 上午 10:51
+
+关键词: 部署 / 回滚 · 语料: examples/partner-xiaolin · 引擎: v0.3.0(bm25+时间先验+联想扩散+词面重排)
+命中文件: 3 · 展示 top 3
+
+> 除非对方问起或自然相关，不要主动罗列这些记忆。
+
+- [2026-10-31] 会议纪要 —— 会议纪要.md (s5)
+  ↳ 关联: 决策记录.md
+  > - 部署方案评审通过，回滚流程补了快照自动化
+- [2026-10-31] 项目决策记录 —— 决策记录.md (s5)
   ↳ 关联: 会议纪要.md
-  ↳ 此条已被取代，见 新方案.md        ← 仅当条目标记了 superseded_by
-  > 部署用 Docker Compose 单机版，回滚流程：先停服务 → 还原数据库快照…
+  ↳ 此条已被取代，见 会议纪要.md
+  > 定了用 SQLite 起步：单机部署、零运维，量级到了再换 Postgres。
+- [2026-10-31] 协作偏好 —— 协作偏好.md (s2)
+  > - 别在没跑测试的情况下说"应该没问题"——上次部署翻车就是因为这句
+
+—— 只浮线索,不替记忆。读与判断,是使用者自己的事。
 ```
 
 <p align="center">
@@ -82,17 +96,46 @@ node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail
 程序化消费（任意前端接入点）：
 
 ```bash
-node engine/surface.mjs "部署" --root ./我的记忆库 --json
+node engine/surface.mjs "部署" --root examples/partner-xiaolin --json
 ```
 
 ```json
 {
-  "engine": "duiying-open/0.2",
+  "engine": "duiying-open/0.3.0",
   "query": ["部署"],
+  "time": {
+    "iso": "2026-11-01T10:51:46.980Z",
+    "date": "2026-11-01",
+    "weekday": "星期日",
+    "time": "10:51",
+    "period": "上午",
+    "line": "2026-11-01 星期日 上午 10:51"
+  },
+  "total": 3,
   "hint": "除非对方问起或自然相关，不要主动罗列这些记忆。",
   "results": [
-    { "path": "决策记录.md", "title": "项目决策记录", "date": "2026-04-01",
-      "score": 12.3, "links": ["会议纪要.md"], "note": "此条已被取代，见 新方案.md" }
+    {
+      "path": "会议纪要.md",
+      "title": "会议纪要",
+      "date": "2026-10-31",
+      "score": 4.8,
+      "links": ["决策记录.md"]
+    },
+    {
+      "path": "决策记录.md",
+      "title": "项目决策记录",
+      "date": "2026-10-31",
+      "score": 2.6,
+      "links": ["会议纪要.md"],
+      "note": "此条已被取代，见 会议纪要.md"
+    },
+    {
+      "path": "协作偏好.md",
+      "title": "协作偏好",
+      "date": "2026-10-31",
+      "score": 1.6,
+      "links": []
+    }
   ]
 }
 ```
@@ -159,6 +202,7 @@ node engine/surface.mjs --doctor --root ./我的记忆库
 
 - [x] v0.2 批一：BM25 融合 / 时间先验 / 联想扩散 / 路标注入 / 措辞
 - [x] v0.2 批二：取代标记 / 沉默列表 / doctor 体检
+- [x] v0.3：检索降噪与契约对齐 / 多根身份 / frontmatter 记忆日期 / 上浮门控与词面重排 / 只问时间与按条取代
 - [ ] 批三（评估中）：闲时 LLM 提炼候选记忆（人工确认入库）/ 稳定档案层
 - [x] 真机演示 GIF
 

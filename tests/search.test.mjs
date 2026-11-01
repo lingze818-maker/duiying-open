@@ -222,7 +222,9 @@ test("CLI：缺参数会失败，--json --out 会落盘且 stdout 仍是 JSON", 
   const { stdout } = await run(process.execPath, [ENGINE, "部署", "--root", dir, "--json", "--out", out]);
   const fromStd = JSON.parse(stdout);
   const fromFile = JSON.parse(fs.readFileSync(out, "utf8"));
-  assert.equal(fromStd.engine, "duiying-open/0.2");
+  const version = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  assert.equal(version, "0.3.0");
+  assert.equal(fromStd.engine, `duiying-open/${version}`);
   assert.equal(fromFile.results[0].path, "a.md");
 });
 

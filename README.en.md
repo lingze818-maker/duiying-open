@@ -69,8 +69,9 @@ Node 18 or newer. Nothing to install.
 git clone https://github.com/lingze818-maker/duiying-open.git
 cd duiying-open
 
-# A fully fictional sample bank: three months with an AI teammate named Xiaolin
-node engine/surface.mjs "deployment,rollback" --root examples/partner-xiaolin --detail
+# Sample notes are in Chinese — same flagship query as the Chinese quick start.
+# A later run only changes the clock on the first line.
+node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail
 ```
 
 <p align="center">
@@ -80,17 +81,46 @@ node engine/surface.mjs "deployment,rollback" --root examples/partner-xiaolin --
 For programmatic use (the integration point for any frontend):
 
 ```bash
-node engine/surface.mjs "deployment" --root ./my-memory --json
+node engine/surface.mjs "部署" --root examples/partner-xiaolin --json
 ```
 
 ```json
 {
-  "engine": "duiying-open/0.2",
-  "query": ["deployment"],
-  "hint": "Unless the user asks or it is naturally relevant, do not recite these memories.",
+  "engine": "duiying-open/0.3.0",
+  "query": ["部署"],
+  "time": {
+    "iso": "2026-11-01T10:51:46.980Z",
+    "date": "2026-11-01",
+    "weekday": "星期日",
+    "time": "10:51",
+    "period": "上午",
+    "line": "2026-11-01 星期日 上午 10:51"
+  },
+  "total": 3,
+  "hint": "除非对方问起或自然相关，不要主动罗列这些记忆。",
   "results": [
-    { "path": "decisions.md", "title": "Project decisions", "date": "2026-04-01",
-      "score": 12.3, "links": ["meetings.md"], "note": "Superseded — see new-plan.md" }
+    {
+      "path": "会议纪要.md",
+      "title": "会议纪要",
+      "date": "2026-10-31",
+      "score": 4.8,
+      "links": ["决策记录.md"]
+    },
+    {
+      "path": "决策记录.md",
+      "title": "项目决策记录",
+      "date": "2026-10-31",
+      "score": 2.6,
+      "links": ["会议纪要.md"],
+      "note": "此条已被取代，见 会议纪要.md"
+    },
+    {
+      "path": "协作偏好.md",
+      "title": "协作偏好",
+      "date": "2026-10-31",
+      "score": 1.6,
+      "links": []
+    }
   ]
 }
 ```
@@ -161,12 +191,13 @@ none of it requires a model.
 ## Docs
 
 - [Frontend integration contract](docs/接入契约.md) (Chinese)
-- [Sample corpus guide](examples/partner-xiaolin/README.md) (Chinese; the corpus itself is language-agnostic)
+- [Sample corpus guide](examples/partner-xiaolin/README.md) (Chinese; the sample notes are in Chinese)
 
 ## Roadmap
 
 - [x] v0.2 batch 1: BM25 fusion / time prior / associative diffusion / landmark injection / injection hint
 - [x] v0.2 batch 2: supersede markers / silence list / doctor checkup
+- [x] v0.3: search noise fixes and contract alignment / per-root identity / frontmatter memory dates / surface gate and lexical rerank / time-only queries and per-claim supersede
 - [ ] Batch 3 (under evaluation): idle-time LLM candidate extraction (human-confirmed) / stable profile layer
 - [ ] Auto-generated MCP contract docs / agent-skill distribution
 - [x] Live demo GIF
