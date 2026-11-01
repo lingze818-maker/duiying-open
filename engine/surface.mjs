@@ -11,6 +11,8 @@ import fs from "node:fs";
 import { search, runDoctor, displayPath } from "./core.mjs";
 import { flagEnabled } from "./lib.mjs";
 
+const VERSION = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+
 const argv = process.argv.slice(2);
 const positional = [];
 let LIMIT = 10, DETAIL = false, USE_LINKS = true, AS_JSON = false, DOCTOR = false;
@@ -83,7 +85,7 @@ const result = search({
 });
 
 if (AS_JSON) {
-  const payload = JSON.stringify({ engine: "duiying-open/0.2", query: keywords, ...result }, null, 2);
+  const payload = JSON.stringify({ engine: `duiying-open/${VERSION}`, query: keywords, ...result }, null, 2);
   console.log(payload);
   if (outPath) {
     fs.writeFileSync(outPath, payload + "\n", "utf8");
@@ -91,7 +93,7 @@ if (AS_JSON) {
   }
 } else {
   let md = `# 记忆上浮 · ${result.time.line}\n\n`;
-  md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v0.2(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""}${rerank ? "+词面重排" : ""})\n`;
+  md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v${VERSION}(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""}${rerank ? "+词面重排" : ""})\n`;
   if (result.gate && result.gate.allow === false) {
     md += `门控: ${result.gate.intent} / ${result.gate.reason} · 未检索\n`;
   }

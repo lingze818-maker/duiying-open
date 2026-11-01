@@ -155,7 +155,10 @@ test("CLI 端到端: --root 临时语料 --json 可解析且排序合理", async
     const engine = new URL("../engine/surface.mjs", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
     const { stdout } = await run("node", [engine, "部署,回滚", "--root", dir, "--json", "--detail"]);
     const parsed = JSON.parse(stdout);
-    assert.equal(parsed.engine, "duiying-open/0.2");
+    const { readFileSync } = await import("node:fs");
+    const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+    assert.equal(version, "0.3.0");
+    assert.equal(parsed.engine, `duiying-open/${version}`);
     assert.ok(parsed.total >= 2);
     assert.ok(parsed.hint.includes("不要主动罗列"));
     const paths = parsed.results.map(r => r.path);

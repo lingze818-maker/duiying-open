@@ -20,11 +20,12 @@
  * 实现 initialize / tools/list / tools/call / ping——手写协议子集，无 SDK。
  */
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { search, runDoctor, displayPath } from "../engine/core.mjs";
 import { ingest } from "../engine/ingest.mjs";
 import { flagEnabled } from "../engine/lib.mjs";
 
-const VERSION = "0.2.0";
+const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const DEFAULT_ROOTS = (process.env.DUIYING_ROOTS || process.cwd())
   .split(";").map(s => s.trim()).filter(Boolean);
 const DEFAULT_EXCLUDE = (process.env.DUIYING_EXCLUDE || "")
