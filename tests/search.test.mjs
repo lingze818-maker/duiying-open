@@ -110,12 +110,18 @@ test("detail 按字面量摘录，不把查询当正则", () => {
 
 test("沉默条目不出现在 links 里", () => {
   const dir = tmp();
-  const shared = "项目周会纪要快照演练流程数据库备份停服容器编排评审";
-  write(dir, "visible.md", `# 可见\n\n部署方案确定。\n${shared}\n`);
-  write(dir, "loud.md", `# 大声的邻居\n\n${shared}\n`);
-  write(dir, "quiet.md", `---\nsuppress: true\n---\n# 沉默\n\n${shared}\n部署方案也写了但不要浮。\n`);
-  const r = search({ roots: [dir], keywords: ["部署方案"], limit: 10 });
+  // 桥接段只够建链（重合约 0.3）。整段复用会到 0.8，近重复按发生日留较新的一篇，
+  // mtime 差 1ms 就把词面命中丢掉，断言跟着 CI 时钟翻。日期和 nowMs 钉死，不跟运行当天走。
+  const bridge = "桥接周会纪要快照演练";
+  const day = new Date(2024, 4, 1, 9, 0, 0);
+  const now = new Date(2024, 4, 11, 9, 0, 0);
+  const head = "---\ndate: 2024-05-01\n---\n";
+  write(dir, "visible.md", `${head}# 可见\n\n部署方案确定。\n${bridge}\n可见专属苹果香蕉橘子葡萄草莓柚子樱桃菠萝芒果荔枝。\n`, day);
+  write(dir, "loud.md", `${head}# 大声的邻居\n\n${bridge}\n邻居专属火车轮船飞机地铁公交单车缆车渡轮马车。\n`, new Date(day.getTime() + 1000));
+  write(dir, "quiet.md", `---\ndate: 2024-05-01\nsuppress: true\n---\n# 沉默\n\n${bridge}\n部署方案也写了但不要浮。\n沉默专属西瓜哈密瓜猕猴桃火龙果山竹榴莲椰子。\n`, new Date(day.getTime() + 2000));
+  const r = search({ roots: [dir], keywords: ["部署方案"], limit: 10, nowMs: now.getTime() });
   assert.equal(r.results.some(x => x.path === "quiet.md"), false);
+  assert.ok(r.results.every(x => x.date === "2024-05-01"));
   assert.ok(r.results.some(x => x.links.includes("loud.md")), "联想链本身应仍在: " + JSON.stringify(r.results));
   assert.ok(r.results.every(x => !x.links.includes("quiet.md")));
 });
