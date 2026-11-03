@@ -82,8 +82,11 @@ export function ingest(p) {
   let n = 2;
   while (fs.existsSync(fp)) { name = `${base}-${n++}.md`; fp = path.join(dir, name); }
 
-  const title = summary.length > 40 ? summary.slice(0, 40) : summary;
-  if (summary.length > 40) warnings.push(`标题超 40 字已截断（完整摘要保留在正文）——路标式注入建议短摘要`);
+  // 标题行必须单行：summary 含换行时压成空格（source_path 同法），否则 `# 标题` 后的行溢出成正文。
+  const flatSummary = summary.replace(/[\r\n]+/g, " ").trim();
+  if (flatSummary !== summary) warnings.push("summary 含换行，标题已压成空格（完整多行内容保留在正文）");
+  const title = flatSummary.length > 40 ? flatSummary.slice(0, 40) : flatSummary;
+  if (flatSummary.length > 40) warnings.push(`标题超 40 字已截断（完整摘要保留在正文）——路标式注入建议短摘要`);
 
   const lines = ["---", `channel: ${channel}`, `ingested_at: ${stamp}`];
   if (p.event) lines.push(`event: ${safeSegment(p.event, 40).replace(/-/g, "_")}`);

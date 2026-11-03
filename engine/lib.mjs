@@ -51,9 +51,11 @@ export function bm25(queryTokens, d, stats) {
 }
 
 /** 时间先验。mtimeMs 是记忆发生时刻：frontmatter date 的本地零点，或文件 mtime。
- *  常态：30 天内 1.25 / 90 天内 1.1；timeMode（查询含时间词，时间优先）：1.6 / 1.3。 */
+ *  常态：30 天内 1.25 / 90 天内 1.1；timeMode（查询含时间词，时间优先）：1.6 / 1.3。
+ *  未来日期（days 为负，frontmatter 写错或预约）不奖励——先验只奖「已经发生的近期」。 */
 export function timeBoost(mtimeMs, nowMs, timeMode) {
   const days = (nowMs - mtimeMs) / 86400000;
+  if (days < 0) return 1.0;
   if (timeMode) return days <= 30 ? 1.6 : days <= 90 ? 1.3 : 1.0;
   return days <= 30 ? 1.25 : days <= 90 ? 1.1 : 1.0;
 }
@@ -215,6 +217,16 @@ export function parseFrontmatter(md) {
     if (arr) {
       const items = arr[1].split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
       fm.set(key, items);
+    } else if (val === "" && i + 1 < close && /^\s*-\s+\S/.test(lines[i + 1] ?? "")) {
+      // 多行 YAML 列表（key: 换行 - item）。此前静默跳过会让 suppress_when 失效、沉默条目照常浮出。
+      const items = [];
+      while (i + 1 < close) {
+        const item = lines[i + 1].match(/^\s*-\s+(.*)$/);
+        if (!item) break;
+        items.push(item[1].trim().replace(/^["']|["']$/g, "").replace(/,$/, "").trim());
+        i++;
+      }
+      if (items.length) fm.set(key, items.filter(Boolean));
     } else if (val) {
       fm.set(key, val.replace(/^["']|["']$/g, ""));
     }
@@ -285,7 +297,13 @@ export function doctor(docs) {
     const sup = fm.get("superseded_by");
     const rels = relsByRoot.get(d.root ?? "");
     if (typeof sup === "string" && sup && !rels.has(sup)) {
-      report.push({ type: "broken_link", file: label(d), detail: `superseded_by 指向的 ${sup} 不存在` });
+      // 子目录场景：写「文件名」而实际在子目录下（文档示例只有根目录）。回退按 basename 唯一匹配；
+      // 多个同名文件（跨根）时按精确 rel 匹配过的根优先，仍歧义则报坏链（不猜）。
+      const supNorm = String(sup).replace(/\\/g, "/");
+      const byName = [...rels].filter(r => r === supNorm || r.endsWith(`/${supNorm}`));
+      if (byName.length !== 1) {
+        report.push({ type: "broken_link", file: label(d), detail: `superseded_by 指向的 ${sup} 不存在${byName.length > 1 ? "（多个同名文件，请写相对路径消歧）" : ""}` });
+      }
     }
     if (!d.title || d.title.length > 40) {
       report.push({ type: "title_quality", file: label(d), detail: d.title ? `标题超长(${d.title.length}字)——路标式注入质量受损` : "无标题" });

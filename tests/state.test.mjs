@@ -16,6 +16,24 @@ suppress_when: [离职, 裁员]
   assert.deepEqual(fm.get("suppress_when"), ["离职", "裁员"]);
   assert.equal(fm.get("title"), "旧版部署方案");
 });
+test("parseFrontmatter: 多行 YAML 列表（suppress_when 换行写法）不被静默丢弃", () => {
+  const md = `---
+title: 家事档案
+suppress_when:
+  - 家事
+  - 裁员
+tags:
+  - 私人
+---
+# 正文`;
+  const fm = parseFrontmatter(md);
+  assert.deepEqual(fm.get("suppress_when"), ["家事", "裁员"]);
+  assert.deepEqual(fm.get("tags"), ["私人"]);
+  // 端到端：沉默判定真的生效（suppress_when 命中查询 → 整条被剔除）
+  const probe = applyMemoryState([{ rel: "x.md", fm, score: 1 }], { query: ["家事 裁员"], now: new Date("2026-11-03") });
+  assert.equal(probe.kept.length, 0);
+});
+
 test("parseFrontmatter: 无 frontmatter 返回空 Map", () => {
   assert.equal(parseFrontmatter("# 只有正文").size, 0);
 });
@@ -109,6 +127,23 @@ test("doctor: 坏链检测——superseded_by 指向不存在的文件", () => {
   ];
   const report = doctor(docs);
   assert.ok(report.some(r => r.type === "broken_link" && r.file === "a.md"));
+});
+test("doctor: 子目录下同名文件——superseded_by 写文件名也能对上（外部审库 P3）", () => {
+  const docs = [
+    { rel: "旧版.md", title: "旧", fm: new Map([["superseded_by", "决策记录.md"]]), tokens: new Set(["部署"]) },
+    { rel: "notes/决策记录.md", title: "新", fm: new Map(), tokens: new Set(["部署", "v2"]) },
+  ];
+  const report = doctor(docs);
+  assert.ok(!report.some(r => r.type === "broken_link"), "子目录 basename 唯一匹配不应报坏链");
+});
+test("doctor: 同根多个同名文件——不猜，仍报坏链并提示写相对路径", () => {
+  const docs = [
+    { root: "r1", rel: "旧版.md", title: "旧", fm: new Map([["superseded_by", "决策记录.md"]]), tokens: new Set(["部署"]) },
+    { root: "r1", rel: "a/决策记录.md", title: "A", fm: new Map(), tokens: new Set(["x"]) },
+    { root: "r1", rel: "b/决策记录.md", title: "B", fm: new Map(), tokens: new Set(["y"]) },
+  ];
+  const report = doctor(docs);
+  assert.ok(report.some(r => r.type === "broken_link" && r.detail.includes("多个同名")), "歧义时应报坏链提示消歧");
 });
 test("doctor: 重复检测——高重合度条目警示", () => {
   const docs = [
