@@ -16,6 +16,24 @@ suppress_when: [离职, 裁员]
   assert.deepEqual(fm.get("suppress_when"), ["离职", "裁员"]);
   assert.equal(fm.get("title"), "旧版部署方案");
 });
+test("parseFrontmatter: 多行 YAML 列表（suppress_when 换行写法）不被静默丢弃", () => {
+  const md = `---
+title: 家事档案
+suppress_when:
+  - 家事
+  - 裁员
+tags:
+  - 私人
+---
+# 正文`;
+  const fm = parseFrontmatter(md);
+  assert.deepEqual(fm.get("suppress_when"), ["家事", "裁员"]);
+  assert.deepEqual(fm.get("tags"), ["私人"]);
+  // 端到端：沉默判定真的生效（suppress_when 命中查询 → 整条被剔除）
+  const probe = applyMemoryState([{ rel: "x.md", fm, score: 1 }], { query: ["家事 裁员"], now: new Date("2026-11-03") });
+  assert.equal(probe.kept.length, 0);
+});
+
 test("parseFrontmatter: 无 frontmatter 返回空 Map", () => {
   assert.equal(parseFrontmatter("# 只有正文").size, 0);
 });

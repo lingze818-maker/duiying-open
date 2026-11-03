@@ -215,6 +215,16 @@ export function parseFrontmatter(md) {
     if (arr) {
       const items = arr[1].split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
       fm.set(key, items);
+    } else if (val === "" && i + 1 < close && /^\s*-\s+\S/.test(lines[i + 1] ?? "")) {
+      // 多行 YAML 列表（key: 换行 - item）。此前静默跳过会让 suppress_when 失效、沉默条目照常浮出。
+      const items = [];
+      while (i + 1 < close) {
+        const item = lines[i + 1].match(/^\s*-\s+(.*)$/);
+        if (!item) break;
+        items.push(item[1].trim().replace(/^["']|["']$/g, "").replace(/,$/, "").trim());
+        i++;
+      }
+      if (items.length) fm.set(key, items.filter(Boolean));
     } else if (val) {
       fm.set(key, val.replace(/^["']|["']$/g, ""));
     }
