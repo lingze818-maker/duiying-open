@@ -129,3 +129,16 @@ test("source_path 换行被压成一行，不撑破 frontmatter", () => {
   assert.ok(fm.some(l => l.startsWith("source_path: ") && l.includes("/tmp/duiying-missing.md")));
   assert.equal(fm.some(l => l.startsWith("suppress:")), false);
 });
+
+test("summary 含换行：标题行保持单行（外部审库 P2）", () => {
+  const r = ingest({
+    root: tmpRoot(), channel: "zcode",
+    summary: "第一行\n第二行",
+    content: "正文",
+  });
+  assert.ok(r.file, "应写入成功");
+  const md = fs.readFileSync(r.file, "utf8");
+  const titleLine = md.split("\n").find(l => l.startsWith("# "));
+  assert.ok(titleLine && !/[\r\n]/.test(titleLine.trim()), "标题行必须单行");
+  assert.ok(r.warnings.some(w => w.includes("换行")), "应告警");
+});
