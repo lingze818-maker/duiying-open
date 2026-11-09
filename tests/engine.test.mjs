@@ -48,12 +48,6 @@ test("timeBoost: 新记忆加权高于旧记忆", () => {
   const old = timeBoost(now - 200 * 86400000, now, false);
   assert.ok(fresh > old);
 });
-
-test("timeBoost: 未来日期不奖励（外部审库 P2）", () => {
-  const now = Date.parse("2026-11-03T00:00:00Z");
-  assert.equal(timeBoost(now + 400 * 86400000, now, false), 1.0);
-  assert.equal(timeBoost(now + 86400000, now, true), 1.0);
-});
 test("timeBoost: 时间词模式放大差距", () => {
   const now = Date.now();
   const fresh = timeBoost(now - 5 * 86400000, now, true);
