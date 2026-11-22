@@ -1,0 +1,814 @@
+{
+  "id": "frozen-duiying-open-2026-11-22",
+  "frozen_at": "2026-11-22",
+  "timezone": "Asia/Shanghai",
+  "now": "2026-11-15T12:00:00+08:00",
+  "k": 10,
+  "vector_enabled": false,
+  "status": "frozen_2026-11-22",
+  "roots": {
+    "qinglan": "fixtures/qinglan",
+    "lumen": "fixtures/lumen",
+    "unauthorized": "fixtures/unauthorized  # never passed as a search root"
+  },
+  "metrics": [
+    "recall@k",
+    "ndcg@k_or_precision@k",
+    "leakage_rate_target_0"
+  ],
+  "queries": [
+    {
+      "id": "L1",
+      "category": "lexical_exact",
+      "query": "部署",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md",
+        "qinglan/回滚演练-已发生.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "正常词面查询对照。单字回退落地后，本条词面命中的相对排序不得变。"
+    },
+    {
+      "id": "L2",
+      "category": "lexical_exact",
+      "query": "樱花",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/樱花苗圃.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "默认开启联想扩散时，词面无关但被扩散带出的在授权根内条目不写入 must_not。本条只锁樱花苗圃必须出现，以及沉默稿与范围外文件不得出现。"
+    },
+    {
+      "id": "L3",
+      "category": "lexical_exact",
+      "query": "散步",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/散步记录.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "与 #13 笔记中的正常查询对照。must_not 只保留硬约束（沉默稿）；部署方案等可能被扩散带出，不作为现行引擎失败。"
+    },
+    {
+      "id": "L4",
+      "category": "lexical_exact",
+      "query": "福利方案",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/福利方案.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "查询「福利方案」不会触发编制调整.md 的 suppress_when。默认扩散下该篇可能作为邻居出现，不写入 must_not；沉默稿仍不得出现。"
+    },
+    {
+      "id": "L5",
+      "category": "lexical_exact",
+      "query": "苗圃浇水",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/樱花苗圃.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "同 L2：默认扩散下不把部署方案写入 must_not。"
+    },
+    {
+      "id": "L6",
+      "category": "lexical_exact",
+      "query": "回滚",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md",
+        "qinglan/回滚演练-已发生.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged"
+    },
+    {
+      "id": "L7",
+      "category": "lexical_exact",
+      "query": "青岚浇灌",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/樱花苗圃.md"
+      ],
+      "must_not_appear": [
+        "lumen/流光校准.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "主根专属锚点，授权仅 qinglan 时不得落到其他根。"
+    },
+    {
+      "id": "L8",
+      "category": "lexical_exact",
+      "query": "部署方案",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged"
+    },
+    {
+      "id": "S1",
+      "category": "synonym_or_paraphrase",
+      "query": "头疼",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/偏头痛.md",
+        "qinglan/季节感冒.md"
+      ],
+      "must_not_appear": [
+        "qinglan/码头值班.md",
+        "qinglan/心情备忘.md",
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "查询写「头疼」，夹具只写「头痛」。现行公开引擎已有同义词表 头疼↔头痛，本条在现行基线应为 pass（不是零召回）。单字回退只在 bigram 零命中时才补一轮，本条已有词面/同义词命中，落地后相对排序不得变，也不应被标成「按单字近似匹配」。本条关闭联想扩散，以便核对仅含「头」的码头值班.md 不得算词面命中。",
+      "use_links": false
+    },
+    {
+      "id": "S2",
+      "category": "synonym_or_paraphrase",
+      "query": "头痛",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/偏头痛.md",
+        "qinglan/季节感冒.md"
+      ],
+      "must_not_appear": [
+        "qinglan/码头值班.md",
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "still_exact_no_unigram_note",
+      "note": "精确词面命中，不应走单字回退，也不应被标成近似匹配。关闭扩散，以便核对码头值班.md 不得算命中。",
+      "use_links": false
+    },
+    {
+      "id": "S3",
+      "category": "synonym_or_paraphrase",
+      "query": "快乐",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/心情备忘.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "expected_miss",
+      "after_unigram": "expected_miss",
+      "pending": "vector",
+      "note": "夹具只写「开心」，正文不再出现「快乐」。完全异字近义，同义词表与单字回退都救不了；本条留给以后的向量对照，现在零召回不算失败。关闭扩散，避免邻居分数造成假命中。",
+      "use_links": false
+    },
+    {
+      "id": "S4",
+      "category": "synonym_or_paraphrase",
+      "query": "开心",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/心情备忘.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "与 S3 对照：精确词面「开心」现在就应命中。默认扩散下不把偏头痛写入 must_not。"
+    },
+    {
+      "id": "S5",
+      "category": "synonym_or_paraphrase",
+      "query": "感冒",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/季节感冒.md"
+      ],
+      "must_not_appear": [
+        "qinglan/码头值班.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "use_links": false
+    },
+    {
+      "id": "S6",
+      "category": "synonym_or_paraphrase",
+      "query": "头疼",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/偏头痛.md"
+      ],
+      "must_not_appear": [
+        "qinglan/码头值班.md"
+      ],
+      "rank_constraints": [
+        {
+          "before": "qinglan/偏头痛.md",
+          "after_any_unigram_noise": true
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "与 S1 互补。现行基线已能经同义词表召回偏头痛.md。单字回退落地后若带进噪音，相关条仍须排在仅共享单字的噪音之前；现行基线先关闭扩散，核对码头值班.md 不得出现。",
+      "use_links": false
+    },
+    {
+      "id": "T1",
+      "category": "time_prior",
+      "query": "部署回滚",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/回滚演练-已发生.md",
+        "qinglan/回滚演练-计划.md",
+        "qinglan/回滚演练-更早.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "higher": "qinglan/回滚演练-已发生.md",
+          "lower": "qinglan/回滚演练-计划.md",
+          "reason": "近期已发生应排在未来日期之前，未来不得因日期更新拿到最高先验"
+        },
+        {
+          "higher": "qinglan/回滚演练-已发生.md",
+          "lower": "qinglan/回滚演练-更早.md",
+          "reason": "近期已发生应排在更早的已发生之前"
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "不锁「计划」与「更早」之间的名次，避免把未写死的公式写进标准答案。"
+    },
+    {
+      "id": "T2",
+      "category": "time_prior",
+      "query": "最近",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/回滚演练-已发生.md",
+        "qinglan/周报.md",
+        "qinglan/部署方案.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "order_by": "memory_date_desc",
+          "among_unsuppressed": true
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "只有时间词时按记忆发生日列出；suppress:true 仍不得出现。未来日期条目若被列出，不得排到已发生的近因之前。"
+    },
+    {
+      "id": "T3",
+      "category": "time_prior",
+      "query": "最近的樱花",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/樱花苗圃.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "带词面的时间查询不得改走「只按发生日列出」：樱花苗圃必须出现。回滚演练-已发生可能被扩散带出，不作为 must_not；以必须出现樱花苗圃、且结果不得与 T2 的纯时间列表相同来核对。"
+    },
+    {
+      "id": "T4",
+      "category": "time_prior",
+      "query": "最近的部署回滚",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/回滚演练-已发生.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "higher": "qinglan/回滚演练-已发生.md",
+          "lower": "qinglan/回滚演练-计划.md",
+          "if_both_present": true
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged"
+    },
+    {
+      "id": "G1",
+      "category": "suppress_or_supersede",
+      "query": "裁员方案",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [],
+      "must_not_appear": [
+        "qinglan/编制调整.md"
+      ],
+      "leak_if_appear": [
+        "qinglan/编制调整.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero",
+      "note": "编制调整.md 使用多行 suppress_when：裁员、编制。查询含「裁员」时泄漏率必须为 0。本条没有必须出现的条目。"
+    },
+    {
+      "id": "G2",
+      "category": "suppress_or_supersede",
+      "query": "编制",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [],
+      "must_not_appear": [
+        "qinglan/编制调整.md"
+      ],
+      "leak_if_appear": [
+        "qinglan/编制调整.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero"
+    },
+    {
+      "id": "G3",
+      "category": "suppress_or_supersede",
+      "query": "工作站电源",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/编制调整.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "同一篇在查询不含沉默词时应出现，证明沉默是条件触发，不是整篇删除。"
+    },
+    {
+      "id": "G4",
+      "category": "suppress_or_supersede",
+      "query": "部署",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "leak_if_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero",
+      "note": "整篇 suppress:true，即使正文含「部署方案」也不得浮出。"
+    },
+    {
+      "id": "G5",
+      "category": "suppress_or_supersede",
+      "query": "部署方案",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/notes/决策记录.md",
+        "qinglan/旧版决策.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "higher": "qinglan/notes/决策记录.md",
+          "lower": "qinglan/旧版决策.md"
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "ranking_of_lexical_hits_unchanged",
+      "note": "子目录且 basename 唯一：notes/决策记录.md 应排在旧版决策.md 之前，旧版决策不得消失。现行引擎未必给旧版决策附上提到「决策记录.md」的说明，这一条记为已知缺口，不写入现行 pass 标准。",
+      "desired_not_current": [
+        {
+          "kind": "search_note",
+          "path": "qinglan/旧版决策.md",
+          "must_mention": "决策记录.md",
+          "reason": "现行 search 只在 superseded_by 的相对路径能在 relsByRoot 精确命中时才附注；basename「决策记录.md」虽可被 doctor 唯一解析到 notes/决策记录.md，但结果.note 仍为空白。本条现行只核排序，不把附注写成 pass。"
+        }
+      ]
+    },
+    {
+      "id": "G6",
+      "category": "suppress_or_supersede",
+      "query": "纪要",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/east/纪要.md",
+        "qinglan/west/纪要.md"
+      ],
+      "must_not_guess_successor_for": "qinglan/旧纪要.md",
+      "doctor_expect": [
+        {
+          "type": "broken_link",
+          "file": "旧纪要.md",
+          "detail_contains": "多个同名"
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "同根歧义：east/纪要.md 与 west/纪要.md 同名。旧纪要.md 不得被猜指向其中一篇；doctor 应报坏链并提示写相对路径。单根时 doctor 的 file 字段是「旧纪要.md」，不含根名前缀。",
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ]
+    },
+    {
+      "id": "G7",
+      "category": "suppress_or_supersede",
+      "query": "你好",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": true,
+      "rerank": true,
+      "must_appear": [],
+      "must_not_appear": [
+        "qinglan/部署方案.md",
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "expect_total": 0,
+      "expect_gate_reason": "greeting",
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "浮现门：问候零条。"
+    },
+    {
+      "id": "G8",
+      "category": "suppress_or_supersede",
+      "query": "记得上次部署",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": true,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "浮现门：回忆类查询应放行词面命中。"
+    },
+    {
+      "id": "M1",
+      "category": "multi_root",
+      "query": "流光校准",
+      "roots": [
+        "qinglan",
+        "lumen"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "lumen/流光校准.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "现行引擎在默认联想扩散下，分数可跨根扩散，其他根文档可能出现在结果里。本条只要求流光校准必须出现且归属 lumen，以及沉默稿与范围外文件不得出现；不把青岚条目写成现行 must_not。跨根不写进 links 仍由 M3 核对。"
+    },
+    {
+      "id": "M2",
+      "category": "multi_root",
+      "query": "青岚浇灌",
+      "roots": [
+        "qinglan",
+        "lumen"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/樱花苗圃.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md",
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "同 M1：只锁青岚浇灌（樱花苗圃）必须出现；不把流光档案条目写成现行 must_not。"
+    },
+    {
+      "id": "M3",
+      "category": "multi_root",
+      "query": "部署",
+      "roots": [
+        "qinglan",
+        "lumen"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/周报.md",
+        "lumen/周报.md",
+        "qinglan/部署方案.md",
+        "lumen/部署方案.md"
+      ],
+      "must_not_appear": [
+        "unauthorized/外人笔记.md"
+      ],
+      "root_constraints": [
+        {
+          "path": "qinglan/周报.md",
+          "root": "qinglan"
+        },
+        {
+          "path": "lumen/周报.md",
+          "root": "lumen"
+        },
+        {
+          "path": "qinglan/部署方案.md",
+          "root": "qinglan"
+        },
+        {
+          "path": "lumen/部署方案.md",
+          "root": "lumen"
+        }
+      ],
+      "no_cross_root_links": true,
+      "no_cross_root_dedup": true,
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "同名文件各属其根，不串附注、不跨根去重。本条 k=20：默认 k=10 时，部署类条目较多，lumen/周报.md 可能被挤出前十，不因此判引擎失败。",
+      "k": 20
+    },
+    {
+      "id": "O1",
+      "category": "out_of_scope",
+      "query": "柘林徽记",
+      "roots": [
+        "qinglan",
+        "lumen"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [],
+      "must_not_appear": [
+        "unauthorized/外人笔记.md"
+      ],
+      "expect_total": 0,
+      "leak_if_appear": [
+        "unauthorized/外人笔记.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero",
+      "note": "范围外专属锚点改为「柘林徽记」。初稿曾用「紫藤口令」，但授权根部署方案.md 写有「不依赖临时口令」，词面「口令」会命中授权根，零召回被误判失败。本条仍要求授权根为 qinglan+lumen 时结果总数为 0，外人笔记不得出现。"
+    },
+    {
+      "id": "O2",
+      "category": "out_of_scope",
+      "query": "部署",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/部署方案.md"
+      ],
+      "must_not_appear": [
+        "unauthorized/外人笔记.md",
+        "lumen/部署方案.md",
+        "lumen/周报.md",
+        "lumen/流光校准.md"
+      ],
+      "leak_if_appear": [
+        "unauthorized/外人笔记.md",
+        "lumen/部署方案.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero",
+      "note": "外人笔记与流光档案都写了「部署」，但本条只授权 qinglan。"
+    },
+    {
+      "id": "O3",
+      "category": "out_of_scope",
+      "query": "流光校准",
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [],
+      "must_not_appear": [
+        "lumen/流光校准.md"
+      ],
+      "expect_total": 0,
+      "leak_if_appear": [
+        "lumen/流光校准.md"
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "leakage_still_zero",
+      "note": "有效根未授权时等同范围外。"
+    },
+    {
+      "id": "R1",
+      "category": "lexical_rerank",
+      "query": "蓝图 归档",
+      "query_keywords": [
+        "蓝图",
+        "归档"
+      ],
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": true,
+      "must_appear": [
+        "qinglan/蓝图归档纪要.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "higher": "qinglan/蓝图归档纪要.md",
+          "lower": "qinglan/堆词诱饵.md"
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "开启词面重排：同时写到两个词的纪要应排到堆词诱饵之前。"
+    },
+    {
+      "id": "R2",
+      "category": "lexical_rerank",
+      "query": "蓝图 归档",
+      "query_keywords": [
+        "蓝图",
+        "归档"
+      ],
+      "roots": [
+        "qinglan"
+      ],
+      "gate": false,
+      "rerank": false,
+      "must_appear": [
+        "qinglan/堆词诱饵.md"
+      ],
+      "must_not_appear": [
+        "qinglan/草稿-已归档沉默.md"
+      ],
+      "rank_constraints": [
+        {
+          "higher": "qinglan/堆词诱饵.md",
+          "lower": "qinglan/蓝图归档纪要.md"
+        }
+      ],
+      "lexical_current": "pass",
+      "after_unigram": "unchanged",
+      "note": "关闭词面重排的对照：堆词诱饵应排在前面。不是默认路径，只用于开/关对照。"
+    }
+  ],
+  "use_links_default": true
+}
