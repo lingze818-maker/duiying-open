@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
   parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
+  unigramHits, UNIGRAM_WEIGHT, UNIGRAM_NOTE,
   overlapRatio, isSuppressed, formatLocalDate, memoryInstant, memoryKey, joinRoot,
   classifyIntent, anchorKeywords, lexicalScore, isDuplicateQuery, markSurfaced, GATE_TTL_MS,
   isTimeOnlyQuery, supersessionApplies,
@@ -198,6 +199,7 @@ function applyLexicalRerank(pool, queryText) {
  *   gateTtlMs?: number         同一句重复上浮的间隔，默认 120 秒。
  *   rerank?: boolean           词面重排。默认开；只有多条且重合度不同才改分数。
  * @returns {object} { total, hint, results: [{path,root?,title,date,score,links,note?,excerpt?}], gate? }
+ *   note 是取代附注，或单字回退时的「按单字近似匹配」。词面或同义词已经有分时不带后者。
  *   多个根时每条带 root（解析后的绝对路径）；path 与 links 相对该根。
  *   只有 gate 打开时才带 gate 字段。
  */
@@ -273,6 +275,21 @@ export function search(opts) {
       * timeBoost(r.d.when.ms, nowMs, timeMode);
     if (r.score <= 0.01) r.score = 0;
     r.lexical = r.score;
+  }
+
+  // 词面（bigram + 同义词）已经有分时，不跑单字、不改排序、不附近似说明。
+  // 只问时间是另一条路径，按发生日列笔记，也不要插进单字回退。
+  if (!timeOnly && !scored.some(r => r.lexical > 0)) {
+    for (const r of scored) {
+      const hay = `${r.d.base}\n${r.d.title}\n${r.d.content}`;
+      const chars = unigramHits(expanded, hay);
+      if (!chars.length) continue;
+      const s = chars.length * UNIGRAM_WEIGHT * timeBoost(r.d.when.ms, nowMs, timeMode);
+      if (s <= 0.01) continue;
+      // lexical 保持 0：真词面命中若与单字同时存在，仍然排在前面。
+      r.score = s;
+      r.unigram = true;
+    }
   }
 
   const silenced = new Set(
@@ -364,9 +381,10 @@ export function search(opts) {
     };
     const sup = r.d.fm.get("superseded_by");
     const note = notes.get(memoryKey(r.d));
-    if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && note) {
-      out.note = note;
-    }
+    const parts = [];
+    if (typeof sup === "string" && sup && relsByRoot.get(r.d.root)?.has(sup) && note) parts.push(note);
+    if (r.unigram) parts.push(UNIGRAM_NOTE);
+    if (parts.length) out.note = parts.join("；");
     if (detail) out.excerpt = hitLine(r.d.content, expanded) ?? displayTitle(r.d.title);
     return out;
   });
