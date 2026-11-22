@@ -13,6 +13,9 @@ import { checkFrozenSet, loadFrozen } from "./frozen-eval.mjs";
 
 const EXAMPLE = path.resolve("examples/partner-xiaolin");
 const available = recallBackendAvailable();
+// CI 的安装路径设置该变量：MiniSearch 用例必须实跑。未设置时，没装包就跳过。
+const requireMini = process.env.DUIYING_REQUIRE_MINISEARCH === "1";
+const skipWithoutMini = available || requireMini ? false : "minisearch 未安装";
 
 function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "duiying-index-"));
@@ -60,7 +63,8 @@ test("没有索引或索引损坏时，结果与强制全量扫描相同", () =>
   assert.equal(broken.results.some(r => r.path === "b.md"), false);
 });
 
-test("增量增删改、按根分片、冻结集与示例库不退步", { skip: !available && "minisearch 未安装" }, () => {
+test("增量增删改、按根分片、冻结集与示例库不退步", { skip: skipWithoutMini }, () => {
+  assert.equal(available, true, "DUIYING_REQUIRE_MINISEARCH=1 但 minisearch 未安装");
   const parent = tmp();
   const a = path.join(parent, "a");
   const b = path.join(parent, "b");
@@ -169,7 +173,8 @@ test("增量增删改、按根分片、冻结集与示例库不退步", { skip: 
   assert.deepEqual(failures, [], failures.map(f => `${f.id}: ${f.errors.join("; ")}`).join("\n"));
 });
 
-test("虚构大库：索引查询不读完全部正文，并仍守住沉默", { skip: !available && "minisearch 未安装" }, () => {
+test("虚构大库：索引查询不读完全部正文，并仍守住沉默", { skip: skipWithoutMini }, () => {
+  assert.equal(available, true, "DUIYING_REQUIRE_MINISEARCH=1 但 minisearch 未安装");
   const dir = tmp();
   const n = 1200;
   for (let i = 0; i < n; i++) {

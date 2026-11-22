@@ -19,6 +19,27 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: 引擎测试（零依赖，无需 install）
         run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs tests/company-sync.test.mjs engine/ingest.test.js
+      - name: 冻结集与索引回退（零依赖；MiniSearch 用例可跳过）
+        run: |
+          set -o pipefail
+          node --test tests/frozen.test.mjs tests/index.test.mjs | tee zero-dep-index.log
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const t = fs.readFileSync('zero-dep-index.log', 'utf8');
+          const mustRun = [
+            '冻结词面集：没有索引时与现行全量扫描一致',
+            '没有索引或索引损坏时，结果与强制全量扫描相同',
+            '向量候选源预留且默认关闭',
+          ];
+          for (const name of mustRun) {
+            const line = t.split('\n').find(l => l.startsWith('ok ') && l.includes(name));
+            if (!line || line.includes('SKIP')) {
+              console.error('expected this test to run: ' + name);
+              process.exit(1);
+            }
+          }
+          console.log('frozen full-scan and index fallback tests ran');
+          "
       - name: CLI 冒烟（示例语料 + JSON 契约）
         run: |
           node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --json | node -e "
@@ -47,6 +68,49 @@ jobs:
             if (!msgs[3].result.content[0].text.includes('除非对方问起')) throw new Error('hint text');
             console.log('MCP 协议 OK ·', names.join(', '));
           });"
+
+  index:
+    name: test (minisearch)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: 安装可选包 minisearch（不写入 dependencies）
+        run: npm install minisearch@7.2.0 --no-save --no-package-lock --ignore-scripts --no-audit --no-fund
+      - name: MiniSearch 索引用例（必须实跑，不许跳过）
+        env:
+          DUIYING_REQUIRE_MINISEARCH: "1"
+        run: |
+          set -o pipefail
+          node --test tests/index.test.mjs | tee minisearch-index.log
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const t = fs.readFileSync('minisearch-index.log', 'utf8');
+          const skipped = t.match(/^# skipped (\d+)/m);
+          if (!skipped || skipped[1] !== '0') {
+            console.error('MiniSearch tests skipped: ' + (skipped ? skipped[0] : 'no summary'));
+            process.exit(1);
+          }
+          const mustRun = [
+            '增量增删改、按根分片、冻结集与示例库不退步',
+            '虚构大库：索引查询不读完全部正文，并仍守住沉默',
+          ];
+          for (const name of mustRun) {
+            const line = t.split('\n').find(l => l.startsWith('ok ') && l.includes(name));
+            if (!line || line.includes('SKIP')) {
+              console.error('expected this test to run: ' + name);
+              console.error(line || '(no ok line)');
+              process.exit(1);
+            }
+          }
+          console.log('MiniSearch index tests ran (skipped 0)');
+          "
 
   audit:
     runs-on: ubuntu-latest
