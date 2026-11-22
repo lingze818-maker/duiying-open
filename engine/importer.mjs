@@ -17,6 +17,7 @@
  */
 import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, relative, extname, basename } from "node:path";
+import { canWrite } from "./authz.mjs";
 
 export const CHUNK_CHARS = 500;
 const MD_LIKE = new Set([".md", ".markdown", ".txt"]);
@@ -150,10 +151,19 @@ function isoDate(ms) {
 
 /**
  * 批量导入：sourceDir 下所有支持文档 → 切块 → 写成记忆 md 到 memoryRoot。
+ * @param {object} opts
+ *   subdir:      写入记忆根下的子目录（默认写根；企业分库时传库名对应目录）
+ *   chunkChars:  切块上限（默认 500）
+ *   authz:       { user, libName, config } 提供时做写权限校验——canWrite 不过则整体拒绝（默认拒绝），
+ *                并通过 opts.onDenied 回调（或抛错）告知。审计由调用方经 AuditLog 记录。
  * @returns {imported, chunks, skipped: [{path, reason}]}
  *   imported = 成功转换的源文档数；chunks = 写出的记忆文件数。
  */
 export async function importTo(memoryRoot, sourceDir, opts = {}) {
+  const az = opts.authz;
+  if (az && !canWrite(az.user, az.libName, az.config)) {
+    throw new Error(`importer: 用户 ${az.user} 无库 ${az.libName} 的写权限（默认拒绝）`);
+  }
   const entries = scanDocs(sourceDir);
   const skipped = [];
   let imported = 0, chunks = 0;
