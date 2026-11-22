@@ -8,7 +8,8 @@
  * 部门切开，只替换 Layer 1 的实现；调用方仍然按根请求、按候选文档消费。
  *
  * 当前实现是可选的 MiniSearch（见 recall-minisearch.mjs）。本文件不把
- * 那个库的类型、分数或查询 API 传出这一层。
+ * 那个库的类型、分数或查询 API 传出这一层。以后换后端（只替换这一层，
+ * 再 registerCandidateRecall）时，排序、门控和词面重排仍留在 core。
  */
 import fs from "node:fs";
 import path from "node:path";

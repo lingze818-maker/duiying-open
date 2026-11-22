@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: 引擎测试（零依赖，无需 install）
-        run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs tests/company-sync.test.mjs engine/ingest.test.js
+        run: node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs tests/company-sync.test.mjs tests/directory-sync.test.mjs tests/plugin-surface.test.mjs tests/acceptance-dry-run.test.mjs engine/ingest.test.js
       - name: 冻结集与索引回退（零依赖；MiniSearch 用例可跳过）
         run: |
           set -o pipefail

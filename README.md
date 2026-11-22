@@ -156,7 +156,7 @@ node engine/surface.mjs "部署" --root examples/partner-xiaolin --json
 详见 [docs/接入契约.md](docs/接入契约.md)。四条路任选：
 
 - **CLI 直调**（zcode / codex / deepseek harness 等 agent 环境）：工具定义里包一层 `node engine/surface.mjs "$query" --root <库> --json`；
-- **MCP server**（zcode / claude 系 / 任何 MCP 宿主）：`node mcp/server.mjs` 起 stdio 服务，宿主配置一行获得 `memory_surface` / `memory_doctor` / `memory_ingest` 工具——读全库，也能往里留痕；
+- **MCP server**（任何 MCP 宿主）：`node mcp/server.mjs` 起 stdio 服务。通用粘贴稿在 [mcp/client.mcp.json](mcp/client.mcp.json)，获得 `memory_surface` / `memory_doctor` / `memory_ingest`。复制插件目录即可，不必用 Git，也没有安装程序；
 - **Node 程序内嵌**：`import { tokenize, buildStats, bm25, buildLinks, spread } from "./engine/lib.mjs"`——纯函数无 IO，怎么编排都行；
 - **上浮的触发层级**：MCP 工具是被动的——引擎保证"任何时候被问到都答得好"，自动化的程度由前端决定（系统提示一句话约定 → 消息注入管线 → 服务端内建），三级详见 [docs/接入契约.md](docs/接入契约.md)「上浮的触发层级」；
 - **记忆条目状态**：在 md 头部写 frontmatter 即生效——
@@ -205,6 +205,10 @@ node engine/surface.mjs --doctor --root ./我的记忆库
 ## 文档
 
 - [前端接入契约](docs/接入契约.md)
+- [边界说明](docs/边界说明.md)（数据留在本机、只读授权目录、检索不代为决定）
+- [使用说明](docs/使用说明.md)（怎么打开、怎么问、怎么读引用、怎么让一篇沉默）
+- [操作手册](docs/操作手册.md)（接上、改授权根、体检、同步、升级与卸下）
+- 通用 MCP 粘贴稿：[mcp/client.mcp.json](mcp/client.mcp.json)（`<插件目录>` 与 `<授权记忆根>` 换成实际路径；不绑定某一个前端）
 - [示例语料说明](examples/partner-xiaolin/README.md)
 
 ## 路线图

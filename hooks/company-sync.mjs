@@ -3,7 +3,7 @@
  * hooks/company-sync.mjs — 把公司文档拉进一个授权根。
  *
  * 给定时任务、CI，或上浮钩子的可选前置步骤调用。默认只拉取，不回写公司系统。
- * 适配器由配置加载（内置虚构夹具名 fixture，或本地模块路径），不必改 engine/。
+ * 适配器由配置加载（内置 fixture 或 directory，或本地模块路径），不必改 engine/。
  *
  * stdin JSON（可缺省）覆盖同名环境变量：
  *   {"adapter":"fixture","root":"/path/to/memory","since":"2026-04-01T00:00:00.000Z","source":"/path/to/company-source"}

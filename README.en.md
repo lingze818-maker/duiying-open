@@ -144,10 +144,10 @@ Four routes — see [docs/接入契约.md](docs/接入契约.md) (Chinese; schem
 
 - **CLI direct call** (agent environments like zcode / codex / deepseek harness):
   wrap `node engine/surface.mjs "$query" --root <bank> --json` in a tool definition
-- **MCP server** (zcode / claude-family / any MCP host): run `node mcp/server.mjs`
-  (stdio), add one entry to your host config, and get `memory_surface` +
-  `memory_doctor` + `memory_ingest` tools — read the whole bank *and* contribute
-  to it
+- **MCP server** (any MCP host): run `node mcp/server.mjs` (stdio). The generic
+  paste-ready snippet is [mcp/client.mcp.json](mcp/client.mcp.json)
+  (`memory_surface`, `memory_doctor`, `memory_ingest`). Copy the plugin
+  directory; Git is optional and there is no installer
 - **Embed in Node**: `import { tokenize, buildStats, bm25, buildLinks, spread }
   from "./engine/lib.mjs"` — pure functions, no IO, compose freely
 - **How surfacing triggers**: MCP tools are passive — the engine answers whenever
@@ -202,6 +202,8 @@ none of it requires a model.
 ## Docs
 
 - [Frontend integration contract](docs/接入契约.md) (Chinese)
+- [Boundary note](docs/边界说明.md), [usage guide](docs/使用说明.md), and [operator manual](docs/操作手册.md) (Chinese)
+- Generic MCP snippet: [mcp/client.mcp.json](mcp/client.mcp.json). Replace `<插件目录>` and `<授权记忆根>`. It is not tied to one host
 - [Sample corpus guide](examples/partner-xiaolin/README.md) (Chinese; the sample notes are in Chinese)
 
 ## Roadmap

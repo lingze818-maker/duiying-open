@@ -6,6 +6,10 @@
 ## [Unreleased]
 
 - **增量词法索引（可选）**：每个授权根一份 `.duiying/lexical.json`。可选包 `minisearch` 只做候选召回，沿用中文 bigram 与同义词表，不用它的英文词干，也不用它的分数做最终排序。时间先验、联想、沉默、取代、单字回退、词面重排和门控仍在原引擎。缺索引、索引损坏或未安装该包时走全量扫描。`--reindex` 建立或增量更新；`memory_ingest` 与公司同步在索引已存在时顺带更新。向量候选源只留空位，这一版不启用。
+- **MCP 插件目录**：通用粘贴稿 `mcp/client.mcp.json`（`command` / `args` / `DUIYING_ROOTS` 占位符）。引擎随插件目录一起复制，不必用 Git，也没有安装程序。不绑定某一个前端。`DUIYING_HOOK_SYNC` 仍默认关。
+- **本机目录适配器** `directory`：沿用 `list` / `fetch` / `toNote` / `sync`，把一个本地目录里已经是 Markdown 的文件增量拉进授权根，不改、不删源文件。同步失败不挡住上浮。`markdownConverter` 保持 `null`，不转换 Word / PDF / WPS。
+- **人读文档**：`docs/边界说明.md`、`docs/使用说明.md`、`docs/操作手册.md`。
+- **验收跑法**：`scripts/acceptance-dry-run.mjs` 对一份本地题单记录命中文件或「没有命中」。题库不进仓库。Layer 1 仍可替换；向量候选源仍返回空。
 
 ## [0.4.0] — 2026-11-22
 
