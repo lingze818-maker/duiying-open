@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对影 duiying · 人机搭档记忆库（开源版）</title>
+<style>
+  :root {
+    --ink: #16181d; --sub: #5b6470; --faint: #8a929c;
+    --teal: #14b8a6; --teal-deep: #0f766e; --mint: #d7f5ef;
+    --bg: #eef0f2; --panel: #ffffff; --line: #e4e7ea;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--ink); }
+  .shell { max-width: 1200px; margin: 24px auto; background: var(--panel); border-radius: 18px; overflow: hidden; box-shadow: 0 2px 24px rgba(20,40,40,.06); }
+
+  /* 顶栏 */
+  nav { display: flex; align-items: center; padding: 22px 44px; border-bottom: 1px solid var(--line); }
+  .logo { font-size: 21px; font-weight: 700; letter-spacing: .5px; }
+  .logo b { color: var(--teal); }
+  nav .links { margin-left: auto; display: flex; gap: 30px; }
+  nav a { color: var(--sub); text-decoration: none; font-size: 14px; transition: color .15s; }
+  nav a:hover { color: var(--teal-deep); }
+  .btn-gh { border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; display: flex; align-items: center; gap: 6px; }
+  .btn-gh:hover { border-color: var(--teal); background: var(--mint); }
+
+  /* hero */
+  .hero { position: relative; padding: 84px 44px 66px; }
+  .orb { position: absolute; border-radius: 50%; pointer-events: none; }
+  .orb-a { width: 340px; height: 340px; right: 100px; top: 10px; background: radial-gradient(circle at 38% 38%, rgba(183,237,226,.95), rgba(111,216,198,.55) 55%, rgba(111,216,198,0) 78%); }
+  .orb-b { width: 130px; height: 130px; right: 470px; top: 230px; background: radial-gradient(circle at 40% 40%, rgba(201,242,234,.9), rgba(111,216,198,0) 72%); }
+  .mockcard { position: absolute; right: -40px; top: 150px; width: 260px; }
+  .mockcard div { background: var(--mint); border: 1px solid #bfe9df; border-radius: 10px; margin-bottom: 14px; }
+  .mockcard .m1 { height: 44px; width: 210px; margin-left: 50px; }
+  .mockcard .m2 { height: 56px; width: 240px; margin-left: 20px; }
+  .mockcard .m3 { height: 40px; width: 190px; margin-left: 70px; }
+  h1 { font-size: 52px; line-height: 1.18; letter-spacing: 1px; position: relative; }
+  .hero .sub { margin-top: 26px; color: var(--sub); font-size: 17px; line-height: 1.8; position: relative; }
+  .cta { display: inline-block; margin-top: 34px; background: var(--ink); color: #fff; border-radius: 999px; padding: 15px 34px; font-size: 16px; text-decoration: none; position: relative; transition: transform .15s, background .15s; }
+  .cta:hover { background: var(--teal-deep); transform: translateY(-2px); }
+
+  /* 卡片 */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; padding: 10px 44px 56px; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 28px 26px 22px; position: relative; background: #fff; transition: box-shadow .15s, transform .15s; display: block; text-decoration: none; color: var(--ink); }
+  .card:hover { box-shadow: 0 10px 30px rgba(15,118,110,.12); transform: translateY(-3px); }
+  .card h3 { font-size: 19px; margin-bottom: 12px; color: var(--ink); }
+  .card p { color: var(--faint); font-size: 13.5px; line-height: 1.75; }
+  .card .ring { position: absolute; right: 18px; bottom: 16px; width: 74px; height: 74px; }
+  .card .go { position: absolute; right: 22px; bottom: 22px; width: 34px; height: 34px; background: var(--ink); border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .card:hover .go { background: var(--teal-deep); }
+
+  /* 区块 */
+  section { padding: 58px 44px; border-top: 1px solid var(--line); }
+  section h2 { font-size: 26px; margin-bottom: 8px; }
+  section .lead { color: var(--sub); font-size: 14.5px; margin-bottom: 26px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 700; white-space: nowrap; width: 220px; }
+  td:last-child { color: var(--sub); }
+  pre { background: #0f172a; color: #d7f5ef; border-radius: 12px; padding: 20px 24px; font-size: 13.5px; line-height: 1.9; overflow-x: auto; font-family: Consolas, monospace; }
+  pre .c { color: #7d95a8; }
+  .paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 14px; }
+  .paths div { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .paths b { display: block; margin-bottom: 8px; color: var(--teal-deep); }
+  .paths span { color: var(--sub); line-height: 1.7; }
+
+  footer { display: flex; justify-content: space-between; padding: 22px 44px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+  footer a { color: var(--sub); text-decoration: none; }
+  footer a:hover { color: var(--teal-deep); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <nav>
+    <div class="logo">duiying<b>.</b></div>
+    <div class="links">
+      <a href="#kuai">记忆库</a>
+      <a href="#nengli">检索</a>
+      <a href="#doctor">doctor 体检</a>
+      <a href="#jieru">接入指南</a>
+      <a class="btn-gh" href="https://github.com/lingze818-maker/duiying-open" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="kuai">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="mockcard"><div class="m1"></div><div class="m2"></div><div class="m3"></div></div>
+    <h1>让每一个醒来的窗口，<br>都是同一个伙伴</h1>
+    <p class="sub">纯本地 · 零依赖 · 你的 Markdown 记忆库<br>检索你与 AI 的共同记忆——换前端，不换记忆</p>
+    <a class="cta" href="#kuaishi">探索记忆库 →</a>
+  </header>
+
+  <div class="cards">
+    <a class="card" href="#nengli">
+      <h3>记忆检索</h3>
+      <p>BM25 + 专名短语融合<br>中文按字符 bigram，无需分词器</p>
+      <svg class="ring" viewBox="0 0 74 74" fill="none"><circle cx="30" cy="34" r="24" stroke="#14b8a6" stroke-width="3" stroke-dasharray="110 40" stroke-linecap="round"/><circle cx="44" cy="42" r="18" stroke="#2dd4bf" stroke-width="3" stroke-dasharray="80 30" stroke-linecap="round" opacity=".55"/></svg>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="#nengli">
+      <h3>联想上浮</h3>
+      <p>记忆自动互链，命中一条带出相关几条<br>提到部署，想起三月的选型决策</p>
+      <svg class="ring" viewBox="0 0 74 74" fill="none"><circle cx="34" cy="32" r="22" stroke="#8b7cf6" stroke-width="3" stroke-dasharray="95 38" stroke-linecap="round"/><circle cx="44" cy="44" r="17" stroke="#a78bfa" stroke-width="3" stroke-dasharray="75 28" stroke-linecap="round" opacity=".55"/></svg>
+      <span class="go">→</span>
+    </a>
+    <a class="card" href="#doctor">
+      <h3>doctor 体检 + 自动降噪</h3>
+      <p>近重复只浮最新，坏链附注静默降级<br>--doctor 报告供深度清理参考</p>
+      <svg class="ring" viewBox="0 0 74 74" fill="none"><circle cx="32" cy="34" r="23" stroke="#f59e0b" stroke-width="3" stroke-dasharray="105 40" stroke-linecap="round"/><circle cx="45" cy="43" r="17" stroke="#fbbf24" stroke-width="3" stroke-dasharray="70 26" stroke-linecap="round" opacity=".55"/></svg>
+      <span class="go">→</span>
+    </a>
+  </div>
+
+  <section id="kuaishi">
+    <h2>快速开始</h2>
+    <p class="lead">已经有现成的 Markdown 笔记？不需要任何转换——把目录直接指给引擎，立刻可检索。</p>
+    <pre><span class="c"># 用示例语料（完全虚构的"AI 项目搭档小临"三个月记忆）跑一发</span>
+git clone https://github.com/lingze818-maker/duiying-open.git
+cd duiying-open
+node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail</pre>
+  </section>
+
+  <section id="nengli">
+    <h2>它凭什么不同</h2>
+    <p class="lead">记忆是检索问题，不是存储问题——路标式注入，一行一条线索。</p>
+    <table>
+      <tr><td>BM25 + 专名短语融合</td><td>中文按字符 bigram 无需分词器；关键词整串命中单独计强分</td></tr>
+      <tr><td>时间先验</td><td>最近的记忆自然更容易想起；查询含"最近/上周/去年"自动切时间优先模式</td></tr>
+      <tr><td>联想上浮（浮一带二）</td><td>记忆自动互链，命中一条带出相关几条——"提到部署，想起三月的选型决策"</td></tr>
+      <tr><td>取代而非删除</td><td>事实变了？旧条目标 superseded_by 降权保留，上浮时自带"已被取代"附注</td></tr>
+      <tr><td>沉默列表</td><td>suppress / suppress_when——有些记忆不该被提起，但浮不上来 ≠ 删掉</td></tr>
+      <tr><td>路标式注入</td><td>一行一条线索不灌全文——同样 token 预算能容纳更多条记忆</td></tr>
+      <tr><td>不背档案</td><td>结果自带"除非对方问起，不要主动罗列"的措辞——记忆应在言谈中自然流露</td></tr>
+      <tr><td>doctor 体检 + 自动降噪</td><td>检索时自动应用安全修正（近重复只浮最新、坏链附注静默降级）；--doctor 报告供深度清理参考</td></tr>
+    </table>
+  </section>
+
+  <section id="doctor">
+    <h2>doctor 体检</h2>
+    <p class="lead">坏链 / 近重复 / 标题质量 / 沉默清单——检索时自动降噪，报告只报不修。</p>
+    <pre>node engine/surface.mjs --doctor --root ./我的记忆库</pre>
+  </section>
+
+  <section id="jieru">
+    <h2>接入指南</h2>
+    <p class="lead">任意 AI 前端，三条路径二选一。</p>
+    <div class="paths">
+      <div><b>CLI 直调</b><span>shell 里 wrap 一条 node 命令，输出即上浮线索</span></div>
+      <div><b>JSON 契约</b><span>--json 程序接口，任何能起子进程的前端都能接</span></div>
+      <div><b>Node 内嵌</b><span>import 引擎纯函数层，零拷贝集成</span></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>MIT · Node ≥ 18 · 零依赖 · MCP server 内置</span>
+    <a href="https://github.com/lingze818-maker/duiying-open" target="_blank" rel="noopener">github.com/lingze818-maker/duiying-open</a>
+  </footer>
+
+</div>
+</body>
+</html>
