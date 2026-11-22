@@ -24,6 +24,12 @@ import { readFileSync } from "node:fs";
 import { search, runDoctor, displayPath } from "../engine/core.mjs";
 import { ingest } from "../engine/ingest.mjs";
 import { flagEnabled } from "../engine/lib.mjs";
+import { duiyingExtensions } from "./extensions.mjs";
+
+// 向量候选源预留位。保持 null：不注册工具，不读索引，不改变 memory_surface。
+if (duiyingExtensions.vectorCandidateSource) {
+  // 空位被打开时才会走到这里。这一版没有向量源。
+}
 
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const DEFAULT_ROOTS = (process.env.DUIYING_ROOTS || process.cwd())
@@ -46,6 +52,7 @@ const TOOLS = [
         detail: { type: "boolean", description: "可选：附正文命中摘录" },
         gate: { type: "boolean", description: "可选：自动上浮门控。问候、纯情绪、无话题闲聊、短时间内同一句重复则零条且不检索。未传时看环境变量 DUIYING_GATE，默认关——模型主动调用不会被拦住。把本工具当每轮预取时传 true 或设 DUIYING_GATE=1。" },
         rerank: { type: "boolean", description: "可选：词面重排（token 重合 + 子串加分）。未传时看 DUIYING_RERANK，默认开。传 false 关闭。" },
+        index: { type: "boolean", description: "可选：使用该根下已有的词法候选索引。未传时看 DUIYING_INDEX，默认开。没有索引、索引损坏或未安装可选召回包时仍全量扫描。传 false 强制全量扫描。" },
       },
       required: ["query"],
     },
@@ -124,6 +131,7 @@ function toolCall(name, args) {
       exclude,
       gate,
       rerank: asBool(args.rerank, "DUIYING_RERANK", true),
+      index: asBool(args.index, "DUIYING_INDEX", true),
     });
     if (r.gate && r.gate.allow === false) {
       return {

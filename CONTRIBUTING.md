@@ -5,13 +5,14 @@
 
 ## 环境
 
-Node ≥ 18，无任何 npm 依赖，克隆即开发。
+Node ≥ 18。默认路径没有必须安装的 npm 依赖，克隆即可跑 `npm test`。
+增量词法索引是可选包 `minisearch`；没装时相关测试会跳过，全量扫描测试仍然要绿。
 
 ## 提交前
 
 ```bash
-node --test tests/engine.test.mjs tests/state.test.mjs tests/search.test.mjs tests/gate.test.mjs tests/company-sync.test.mjs engine/ingest.test.js   # 全绿
-node scripts/audit.mjs                                    # 脱敏零命中
+npm test                # 全绿。没装 minisearch 时索引用例跳过
+node scripts/audit.mjs  # 脱敏零命中
 ```
 
 ## 约定
@@ -24,6 +25,6 @@ node scripts/audit.mjs                                    # 脱敏零命中
 
 ## 不接受的贡献方向（与项目定位冲突）
 
-- 向量库/嵌入模型/图数据库依赖（违背纯本地铁律）
+- 向量库、嵌入模型、图数据库作为依赖（接口上的向量候选源空位保持关闭，不接编码器）
 - 任何形式的"自动改写记忆"（违背只浮线索哲学）
 - 遥测、账号系统、云同步
