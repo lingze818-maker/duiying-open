@@ -5,3 +5,7 @@ surface.md
 .env
 .env.*
 .DS_Store
+
+# 本地验收题单与报告。不要提交，哪怕是虚构题。
+acceptance-questions.local.json
+acceptance-report.local.json

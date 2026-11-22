@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "duiying-memory": {
+      "command": "node",
+      "args": ["<插件目录>/mcp/server.mjs"],
+      "env": {
+        "DUIYING_ROOTS": "<授权记忆根>"
+      }
+    }
+  }
+}

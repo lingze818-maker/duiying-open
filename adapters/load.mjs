@@ -2,7 +2,8 @@
  * adapters/load.mjs — 按配置加载适配器，不经过 engine/。
  *
  * 名字 `fixture` 是仓库自带的虚构夹具。
- * 其他裸名字到 adapters/<名字>.mjs（以后把专精实现放进来即可）。
+ * 名字 `directory` 读取本机一个目录，只收已经是 Markdown 的文件。
+ * 其他裸名字到 adapters/<名字>.mjs（以后把另一种来源放进来即可）。
  * 以路径给出的本地模块导出 createAdapter(options) 或 list/fetch/toNote。
  */
 import fs from "node:fs";
@@ -29,10 +30,10 @@ function adapterFile(spec) {
     return file;
   }
   if (!/^[\w.-]+$/.test(name)) throw new Error(`非法适配器名：${name}`);
-  if (name === "sync" || name === "load") throw new Error(`找不到适配器：${name}（内置名为 fixture，或给出本地模块路径）`);
+  if (name === "sync" || name === "load") throw new Error(`找不到适配器：${name}（内置名为 fixture 或 directory，或给出本地模块路径）`);
   const bundled = path.join(HERE, `${name}.mjs`);
   if (fs.existsSync(bundled)) return bundled;
-  throw new Error(`找不到适配器：${name}（内置名为 fixture，或给出本地模块路径）`);
+  throw new Error(`找不到适配器：${name}（内置名为 fixture 或 directory，或给出本地模块路径）`);
 }
 
 function asAdapter(value) {
