@@ -111,9 +111,11 @@ test("detail 按字面量摘录，不把查询当正则", () => {
 test("沉默条目不出现在 links 里", () => {
   const dir = tmp();
   const shared = "项目周会纪要快照演练流程数据库备份停服容器编排评审";
-  write(dir, "visible.md", `# 可见\n\n部署方案确定。\n${shared}\n`);
-  write(dir, "loud.md", `# 大声的邻居\n\n${shared}\n`);
-  write(dir, "quiet.md", `---\nsuppress: true\n---\n# 沉默\n\n${shared}\n部署方案也写了但不要浮。\n`);
+  // 三篇发生时刻相同。整段复用重合超过近重复阈值，mtime 差 1ms 会留较新的邻居、丢掉词面命中。
+  const when = new Date(2026, 0, 2, 1, 30, 0);
+  write(dir, "visible.md", `# 可见\n\n部署方案确定。\n${shared}\n`, when);
+  write(dir, "loud.md", `# 大声的邻居\n\n${shared}\n`, when);
+  write(dir, "quiet.md", `---\nsuppress: true\n---\n# 沉默\n\n${shared}\n部署方案也写了但不要浮。\n`, when);
   const r = search({ roots: [dir], keywords: ["部署方案"], limit: 10 });
   assert.equal(r.results.some(x => x.path === "quiet.md"), false);
   assert.ok(r.results.some(x => x.links.includes("loud.md")), "联想链本身应仍在: " + JSON.stringify(r.results));
