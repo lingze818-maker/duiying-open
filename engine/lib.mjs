@@ -183,6 +183,43 @@ export const SYNONYMS = [
   ["头疼", "头痛"],
 ];
 
+/** 单字回退的降权。词面融合分大体在 1 以上，单字命中按每个字乘这系数后排在后面。 */
+export const UNIGRAM_WEIGHT = 0.15;
+/** 结果附注。只在单字回退真正命中时使用，词面或同义词命中不带这句。 */
+export const UNIGRAM_NOTE = "按单字近似匹配";
+/**
+ * 一个关键词至少要盖住这么多比例的字，才算近形。
+ * 两字词共享一字是 0.5（网路/网络）；四字里只撞上一个常见字则不够，避免把整篇带出来。
+ */
+const UNIGRAM_MIN_COVERAGE = 0.5;
+const CJK_CHAR = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+
+/** 文本里的 CJK 单字，按出现顺序去重。 */
+export function cjkUnigrams(text) {
+  const out = [];
+  for (const ch of String(text ?? "").toLowerCase()) {
+    if (CJK_CHAR.test(ch) && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+/**
+ * 词面（bigram + 同义词）零命中时，看每个关键词盖住了多少字。
+ * 返回达到覆盖门槛的那些字（去重）。一个都不够就返回空数组，调用方不要开回退。
+ */
+export function unigramHits(keywords, text) {
+  const hay = String(text ?? "").toLowerCase();
+  const matched = [];
+  for (const kw of keywords || []) {
+    const chars = cjkUnigrams(kw);
+    if (!chars.length) continue;
+    const hit = chars.filter(ch => hay.includes(ch));
+    if (hit.length / chars.length < UNIGRAM_MIN_COVERAGE) continue;
+    for (const ch of hit) if (!matched.includes(ch)) matched.push(ch);
+  }
+  return matched;
+}
+
 /** 查询扩展：返回 keywords + 表内同义变体（去重，保持原词优先）。 */
 export function expandSynonyms(keywords) {
   const out = [...keywords];
