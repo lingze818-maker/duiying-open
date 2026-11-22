@@ -11,7 +11,8 @@
  * stdin: 事件 JSON（含 prompt 字段=用户消息文本）
  * stdout: {"hookEventName":"UserPromptSubmit","additionalContext":"…"}（无命中或被门控挡住时不输出）
  * 门控默认开：问候、纯情绪、没有话题的短句不检索。DUIYING_GATE=0 关掉。
- * 任何异常静默 exit 0——钩子永远不阻塞对话。
+ * 可选：DUIYING_HOOK_SYNC=1 时，检索前先跑一次公司同步（默认关，避免每条消息都打公司接口）。
+ * 同步失败不挡住本次上浮。任何异常静默 exit 0——钩子永远不阻塞对话。
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -54,6 +55,14 @@ async function main() {
     } catch { /* 无本机配置：静默跳过 */ }
   }
   if (!roots.length) return;
+
+  // 默认关。打开时才在检索前把公司文档拉进 DUIYING_COMPANY_ROOT；失败仍继续上浮。
+  if (flagEnabled(process.env.DUIYING_HOOK_SYNC, false)) {
+    try {
+      const { runCompanySyncFromEnv } = await import(pathToFileURL(path.join(HERE, "company-sync.mjs")).href);
+      await runCompanySyncFromEnv();
+    } catch { /* 同步失败不挡住本次上浮 */ }
+  }
 
   const coreUrl = pathToFileURL(path.join(HERE, "..", "engine", "core.mjs")).href;
   const { search, displayPath } = await import(coreUrl);

@@ -1,0 +1,36 @@
+{
+  "name": "fictional-company-source",
+  "description": "完全虚构的本地文档夹具，不对应任何真实公司系统。",
+  "items": [
+    {
+      "id": "ledger-14",
+      "title": "仓库台账",
+      "updated": "2026-03-02T08:00:00.000Z",
+      "date": "2026-03-02",
+      "path": "records/ledger.md"
+    },
+    {
+      "id": "patrol-old-03",
+      "title": "旧巡检规程",
+      "updated": "2026-01-15T08:00:00.000Z",
+      "date": "2026-01-15",
+      "path": "records/patrol-old.md",
+      "superseded_by": "records/patrol-quarter.md"
+    },
+    {
+      "id": "patrol-quarter-09",
+      "title": "季校规程",
+      "updated": "2026-06-01T08:00:00.000Z",
+      "date": "2026-06-01",
+      "path": "records/patrol-quarter.md"
+    },
+    {
+      "id": "sealed-draft-02",
+      "title": "封存草稿",
+      "updated": "2026-05-01T08:00:00.000Z",
+      "date": "2026-05-01",
+      "path": "records/sealed.md",
+      "suppress": true
+    }
+  ]
+}
