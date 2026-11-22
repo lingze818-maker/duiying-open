@@ -174,6 +174,12 @@ export function search(opts) {
   const detail = opts.detail ?? false;
   const nowMs = opts.nowMs ?? Date.now();
   const queryText = String(opts.queryText ?? keywords.join(" "));
+  // 向量路（M1.3）：调用方异步预取 queryVec 后以 { store, queryVec } 传入——search 保持同步纯净。
+  // store.search 返回 [{id: rel, score}]（VectorStore 已按相似度排序）。缺省 null = 纯词面，现状行为不变。
+  const vecCfg = opts.vector ?? null;
+  const vecHits = vecCfg?.store && vecCfg?.queryVec
+    ? vecCfg.store.search(vecCfg.queryVec, vecCfg.k ?? 10)
+    : null;
   let gateInfo = null;
   if (opts.gate) {
     const session = opts.gateSession ?? defaultGateSession;
@@ -241,7 +247,8 @@ export function search(opts) {
 
   // 词面（bigram + 同义词）已经有分时，不跑单字、不改排序、不附近似说明。
   // 只问时间是另一条路径，按发生日列笔记，也不要插进单字回退。
-  if (!timeOnly && !scored.some(r => r.lexical > 0)) {
+  // 语义向量有分时同样跳过单字回退——两路都零分才是「彻底无锚点」。
+  if (!timeOnly && !scored.some(r => r.lexical > 0) && !(vecHits?.length)) {
     if (!runUnigram) return null;
     for (const r of scored) {
       const hay = `${r.d.base}\n${r.d.title}\n${r.d.content}`;
@@ -258,6 +265,26 @@ export function search(opts) {
   const silenced = new Set(
     scored.filter(r => isSuppressed(r.d.fm, silenceQuery)).map(r => r.idx),
   );
+
+  // 语义融合（M1.3）：向量候选按 id(=rel) 对回候选文档，语义分是 0~wVec 的**加法项**，
+  // 词面绝对分不动——「融合分 ≥ 纯词面分」天然成立（语义只增不减，延续词面优先哲学），
+  // 也避免归一化相对分与绝对分混量纲导致同文档分数漂移。
+  // 结果带 match 字段（lexical/semantic/both）——不给用户不可解释的排序。
+  // 沉默条目不因语义分复活；单字回退分（r.unigram）不与语义分叠加（语义有分时单字根本不跑）。
+  if (vecHits?.length && !timeOnly) {
+    const byRel = new Map(vecHits.map(v => [v.id, v.score]));
+    const maxVec = Math.max(1e-9, ...vecHits.map(v => v.score));
+    const wVec = vecCfg.wVec ?? 0.6;
+    for (const r of scored) {
+      if (silenced.has(r.idx)) continue;
+      const raw = byRel.get(r.d.rel);
+      if (raw === undefined || raw <= 0) continue;
+      const sem = (raw / maxVec) * wVec;
+      r.semantic = sem;
+      r.score += sem;
+      r.match = r.lexical > 0 ? "both" : "semantic";
+    }
+  }
 
   if (timeOnly) {
     for (const r of scored) {
@@ -342,6 +369,7 @@ export function search(opts) {
       score: Math.round(r.score * 10) / 10,
       links: linksOf(r),
     };
+    if (r.match) out.match = r.match;
     const sup = r.d.fm.get("superseded_by");
     const note = notes.get(memoryKey(r.d));
     const parts = [];
