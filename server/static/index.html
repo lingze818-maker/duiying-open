@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单位记忆库检索</title>
+<style>
+  :root { --ink: #1a2332; --gray: #5a6478; --line: #dde6f5; --bg: #f5f8ff; --accent: #2b5bd7; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: var(--ink); background: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding-top: 12vh; }
+  h1 { font-size: 22px; letter-spacing: 6px; color: var(--accent); margin-bottom: 4px; }
+  .sub { color: var(--gray); font-size: 12px; margin-bottom: 32px; }
+  .searchbox { display: flex; width: min(560px, 88vw); border: 2px solid var(--accent); border-radius: 6px; overflow: hidden; }
+  #q { flex: 1; border: none; outline: none; padding: 12px 16px; font-size: 15px; }
+  button { border: none; background: var(--accent); color: #fff; padding: 0 28px; font-size: 15px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  .user { margin-top: 10px; color: var(--gray); font-size: 12px; }
+  .user input { width: 100px; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; text-align: center; }
+  #status { margin: 16px 0; color: var(--gray); font-size: 13px; min-height: 18px; }
+  #results { width: min(720px, 92vw); }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; margin-bottom: 12px; background: #fff; }
+  .card .title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .card .meta { color: var(--gray); font-size: 12px; margin-bottom: 8px; }
+  .card .meta .lib { background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; margin-right: 6px; }
+  .card .match { float: right; font-size: 11px; color: var(--accent); }
+  .card .excerpt { font-size: 13.5px; line-height: 1.7; color: #333; white-space: pre-wrap; }
+  .empty { color: var(--gray); text-align: center; padding: 30px; }
+</style>
+</head>
+<body>
+  <h1>单位记忆库</h1>
+  <div class="sub">本地检索 · 数据不出域 · 按权限分库</div>
+  <div class="searchbox">
+    <input id="q" placeholder="输入关键词，检索授权范围内的记忆…" autofocus>
+    <button id="go">检索</button>
+  </div>
+  <div class="user">工号/姓名：<input id="user" placeholder="使用者">（检索记录会入审计日志）</div>
+  <div id="status"></div>
+  <div id="results"></div>
+<script>
+const qEl = document.getElementById("q");
+const userEl = document.getElementById("user");
+const statusEl = document.getElementById("status");
+const resultsEl = document.getElementById("results");
+const MATCH_LABEL = { semantic: "语义匹配", both: "词面+语义", lexical: "" };
+
+async function run() {
+  const q = qEl.value.trim();
+  if (!q) return;
+  statusEl.textContent = "检索中…";
+  resultsEl.innerHTML = "";
+  try {
+    const url = "/api/search?q=" + encodeURIComponent(q) + "&user=" + encodeURIComponent(userEl.value || "anonymous");
+    const r = await fetch(url).then(x => x.json());
+    if (r.note) { statusEl.textContent = r.note; return; }
+    statusEl.textContent = r.results.length ? `共 ${r.results.length} 条结果` : "授权范围内没有找到相关内容";
+    resultsEl.innerHTML = r.results.map(x => `
+      <div class="card">
+        <div class="title">${esc(x.title)}${x.match && MATCH_LABEL[x.match] ? `<span class="match">${MATCH_LABEL[x.match]}</span>` : ""}</div>
+        <div class="meta"><span class="lib">${esc(x.root ?? "公共库")}</span>${esc(x.date)}</div>
+        <div class="excerpt">${esc(x.excerpt ?? "")}</div>
+      </div>`).join("");
+  } catch (e) {
+    statusEl.textContent = "检索失败：" + e.message;
+  }
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = String(s ?? ""); return d.innerHTML; }
+document.getElementById("go").addEventListener("click", run);
+qEl.addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+</script>
+</body>
+</html>

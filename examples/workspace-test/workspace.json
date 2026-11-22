@@ -1,0 +1,10 @@
+{
+  "libs": {
+    "common":  { "path": "./memories/common",  "readers": ["*"], "writers": ["admin"] },
+    "finance": { "path": "./memories/finance", "readers": ["group:finance"], "writers": ["group:finance-lead"] }
+  },
+  "users": {
+    "zhang": { "groups": ["finance"], "libs": ["common", "finance"] },
+    "li":    { "groups": [],          "libs": ["common"] }
+  }
+}
