@@ -93,7 +93,7 @@ if (AS_JSON) {
   }
 } else {
   let md = `# 记忆上浮 · ${result.time.line}\n\n`;
-  md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v${VERSION}(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""}${rerank ? "+词面重排" : ""})\n`;
+  md += `关键词: ${keywords.join(" / ")} · 语料: ${ROOTS.join(" + ")} · 引擎: v0.2(bm25+时间先验${USE_LINKS ? "+联想扩散" : ""}${rerank ? "+词面重排" : ""})\n`;
   if (result.gate && result.gate.allow === false) {
     md += `门控: ${result.gate.intent} / ${result.gate.reason} · 未检索\n`;
   }
