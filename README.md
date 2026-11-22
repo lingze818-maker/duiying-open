@@ -71,7 +71,7 @@ node engine/surface.mjs "部署,回滚" --root examples/partner-xiaolin --detail
 ```
 # 记忆上浮 · 2026-11-01 星期日 上午 10:51
 
-关键词: 部署 / 回滚 · 语料: examples/partner-xiaolin · 引擎: v0.3.0(bm25+时间先验+联想扩散+词面重排)
+关键词: 部署 / 回滚 · 语料: examples/partner-xiaolin · 引擎: v0.4.0(bm25+时间先验+联想扩散+词面重排)
 命中文件: 3 · 展示 top 3
 
 > 除非对方问起或自然相关，不要主动罗列这些记忆。
@@ -101,7 +101,7 @@ node engine/surface.mjs "部署" --root examples/partner-xiaolin --json
 
 ```json
 {
-  "engine": "duiying-open/0.3.0",
+  "engine": "duiying-open/0.4.0",
   "query": ["部署"],
   "time": {
     "iso": "2026-11-01T10:51:46.980Z",
@@ -203,6 +203,7 @@ node engine/surface.mjs --doctor --root ./我的记忆库
 - [x] v0.2 批一：BM25 融合 / 时间先验 / 联想扩散 / 路标注入 / 措辞
 - [x] v0.2 批二：取代标记 / 沉默列表 / doctor 体检
 - [x] v0.3：检索降噪与契约对齐 / 多根身份 / frontmatter 记忆日期 / 上浮门控与词面重排 / 只问时间与按条取代
+- [x] v0.4：CJK 单字回退（仅 bigram 与同义词扩展都零命中）/ 冻结评测集 `evals/frozen/2026-11-22/` / 公司文档拉取（`DUIYING_HOOK_SYNC` 默认关）
 - [ ] 批三（评估中）：闲时 LLM 提炼候选记忆（人工确认入库）/ 稳定档案层
 - [x] 真机演示 GIF
 

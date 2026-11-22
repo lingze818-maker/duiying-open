@@ -86,7 +86,7 @@ node engine/surface.mjs "部署" --root examples/partner-xiaolin --json
 
 ```json
 {
-  "engine": "duiying-open/0.3.0",
+  "engine": "duiying-open/0.4.0",
   "query": ["部署"],
   "time": {
     "iso": "2026-11-01T10:51:46.980Z",
@@ -198,6 +198,7 @@ none of it requires a model.
 - [x] v0.2 batch 1: BM25 fusion / time prior / associative diffusion / landmark injection / injection hint
 - [x] v0.2 batch 2: supersede markers / silence list / doctor checkup
 - [x] v0.3: search noise fixes and contract alignment / per-root identity / frontmatter memory dates / surface gate and lexical rerank / time-only queries and per-claim supersede
+- [x] v0.4: CJK unigram fallback only when bigram and synonym expansion both miss / frozen eval set `evals/frozen/2026-11-22/` / company-document pull (`DUIYING_HOOK_SYNC` default off)
 - [ ] Batch 3 (under evaluation): idle-time LLM candidate extraction (human-confirmed) / stable profile layer
 - [ ] Auto-generated MCP contract docs / agent-skill distribution
 - [x] Live demo GIF
