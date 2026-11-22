@@ -402,6 +402,75 @@ test("钩子：中文整句注入和关键词检索同一条命中行", () => {
   assert.equal(res.stdout.includes(line), true);
 });
 
+test("头疼走同义词表，不标单字近似，只共享一个字的干扰项不上来", () => {
+  const dir = tmp();
+  write(dir, "real.md", "# 病案\n\n头痛已经记下，颈源，热敷后缓解。\n");
+  write(dir, "dock.md", "# 码头\n\n码头早班碰头，清点缆绳。这里有头，没有痛。\n");
+  write(dir, "mood.md", "# 心情\n\n这周很开心。\n");
+  const r = search({ roots: [dir], keywords: ["头疼"], useLinks: false });
+  assert.deepEqual(r.results.map(x => x.path), ["real.md"]);
+  assert.equal(r.results[0].note, undefined);
+});
+
+test("近形词不在同义词表里时才按单字回退，附注并降权", () => {
+  const dir = tmp();
+  const now = new Date(2026, 3, 20, 12, 0, 0).getTime();
+  const old = new Date(2024, 0, 1);
+  // 网/路拆开，bigram 不是「网路」。两字都在，覆盖是 1。
+  write(dir, "split.md", "---\ndate: 2024-01-01\n---\n# 分开\n\n网和路是分开记的。\n", old);
+  // 只有「网」。两字关键词盖住一半，仍然回退，但只算一个字。
+  write(dir, "one.md", "---\ndate: 2024-01-01\n---\n# 渔具\n\n这张网很大。\n", old);
+  // 正文是「网络」，和查询「网路」bigram 不交，只能靠共享的「网」。
+  write(dir, "exact-form.md", "---\ndate: 2024-01-01\n---\n# 机房\n\n机房网络已经换成新地址。\n", old);
+  write(dir, "other.md", "---\ndate: 2024-01-01\n---\n# 浇水\n\n樱花苗圃今天浇水。\n", old);
+  const uni = search({
+    roots: [dir], keywords: ["网路"], useLinks: false, nowMs: now,
+  });
+  assert.equal(uni.results[0].path, "split.md");
+  // 发生日在 90 天外，时间先验是 1。两字 ×0.15 = 0.30，一字 ×0.15 = 0.15，显示时四舍五入。
+  assert.equal(uni.results[0].score, 0.3);
+  const rest = uni.results.slice(1).map(x => x.path).sort();
+  assert.deepEqual(rest, ["exact-form.md", "one.md"]);
+  assert.ok(uni.results.slice(1).every(x => x.score === 0.2));
+  assert.ok(uni.results.every(x => x.note === "按单字近似匹配"));
+  assert.equal(uni.results.some(x => x.path === "other.md"), false);
+  const lex = search({
+    roots: [dir], keywords: ["网络"], useLinks: false, nowMs: now,
+  });
+  assert.equal(lex.results[0].path, "exact-form.md");
+  assert.equal(lex.results[0].note, undefined);
+  assert.ok(lex.results[0].score > uni.results[0].score);
+  assert.ok(lex.results.every(x => x.note !== "按单字近似匹配"));
+});
+
+test("部署和散步有词面命中时不回退，排序也不把单字干扰项算进来", () => {
+  const dir = tmp();
+  const now = new Date(2026, 3, 20, 12, 0, 0).getTime();
+  write(dir, "plan.md", "---\ndate: 2026-04-01\n---\n# 方案\n\n部署方案先做快照。\n");
+  write(dir, "older.md", "---\ndate: 2025-01-01\n---\n# 旧演练\n\n去年做过一次部署。\n");
+  write(dir, "roster.md", "---\ndate: 2026-04-10\n---\n# 名单\n\n部属名单另表，不是那件事。\n");
+  write(dir, "walk.md", "---\ndate: 2026-04-02\n---\n# 河岸\n\n周末沿河散步。\n");
+  write(dir, "bulk.md", "---\ndate: 2026-04-18\n---\n# 散装\n\n散装零件入库。\n");
+  const deploy = search({ roots: [dir], keywords: ["部署"], useLinks: false, nowMs: now });
+  assert.deepEqual(deploy.results.map(x => x.path), ["plan.md", "older.md"]);
+  assert.ok(deploy.results.every(x => x.note === undefined));
+  assert.ok(deploy.results[0].score > deploy.results[1].score);
+  const walk = search({ roots: [dir], keywords: ["散步"], useLinks: false, nowMs: now });
+  assert.deepEqual(walk.results.map(x => x.path), ["walk.md"]);
+  assert.equal(walk.results[0].note, undefined);
+});
+
+test("快乐对不上开心，更长的字符串也不会因一个字回退", () => {
+  const dir = tmp();
+  write(dir, "mood.md", "# 心情\n\n这周很开心，演示过了。\n");
+  write(dir, "note.md", "# 记录\n\n用量记在本子上。\n");
+  const happy = search({ roots: [dir], keywords: ["快乐"], useLinks: false });
+  assert.equal(happy.results.some(x => x.path === "mood.md"), false);
+  const seal = search({ roots: [dir], keywords: ["柘林徽记"], useLinks: false });
+  assert.equal(seal.total, 0);
+  assert.equal(seal.results.length, 0);
+});
+
 test("钩子：未配置排除时不隐藏目录", () => {
   const dir = tmp();
   write(dir, path.join("蒸馏数据", "note.md"), "# 蒸馏\n\n钩子唯一标记词。\n");
