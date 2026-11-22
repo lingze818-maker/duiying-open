@@ -5,18 +5,21 @@
  * 用法：
  *   node surface.mjs "关键词1,关键词2" [--root <语料目录>]... [--limit N] [--json] [--detail] [--no-links] [--out <文件>]
  *   node surface.mjs --doctor [--root <语料目录>]...
+ *   node surface.mjs --reindex [--root <语料目录>]...
  *   手敲检索默认不门控（--gate 才拦截问候/纯情绪）。词面重排默认开（--no-rerank 关闭）。
+ *   根下已有词法索引时用它做候选召回（--no-index 强制全量扫描）。没有索引时行为与全量扫描相同。
  */
 import fs from "node:fs";
 import { search, runDoctor, displayPath } from "./core.mjs";
 import { flagEnabled } from "./lib.mjs";
+import { refreshIndex, recallBackendAvailable } from "./candidate-recall.mjs";
 
 const VERSION = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 const argv = process.argv.slice(2);
 const positional = [];
 let LIMIT = 10, DETAIL = false, USE_LINKS = true, AS_JSON = false, DOCTOR = false;
-let GATE = null, RERANK = null;
+let GATE = null, RERANK = null, REINDEX = false, USE_INDEX = null;
 const roots = [];
 const excludes = [];
 let outPath = null;
@@ -43,15 +46,37 @@ while (i < argv.length) {
   else if (arg === "--no-gate") GATE = false;
   else if (arg === "--rerank") RERANK = true;
   else if (arg === "--no-rerank") RERANK = false;
+  else if (arg === "--reindex") REINDEX = true;
+  else if (arg === "--index") USE_INDEX = true;
+  else if (arg === "--no-index") USE_INDEX = false;
   else positional.push(arg);
   i++;
 }
 const ROOTS = roots.length ? roots : [process.cwd()];
 
 const keywords = positional.join(",").split(/[,，]/).map(s => s.trim()).filter(Boolean);
-if (keywords.length === 0 && !DOCTOR) {
-  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--out <文件>] [--doctor] [--exclude <目录名>] [--gate|--no-gate] [--rerank|--no-rerank]');
+if (keywords.length === 0 && !DOCTOR && !REINDEX) {
+  console.error('用法: node surface.mjs "关键词1,关键词2" [--root <目录>]... [--limit N] [--json] [--detail] [--no-links] [--out <文件>] [--doctor] [--reindex] [--no-index] [--exclude <目录名>] [--gate|--no-gate] [--rerank|--no-rerank]');
   process.exit(1);
+}
+
+if (REINDEX) {
+  if (!recallBackendAvailable()) {
+    console.error("增量索引需要可选包 minisearch（未安装时检索仍走全量扫描）。安装：npm install minisearch");
+    process.exit(1);
+  }
+  let failed = false;
+  for (const root of ROOTS) {
+    const report = refreshIndex(root, { create: true, exclude: excludes });
+    if (!report.ok) {
+      failed = true;
+      console.error(`[index] ${root} 失败：${report.reason || "error"}${report.message ? ` ${report.message}` : ""}`);
+      continue;
+    }
+    console.error(`[index] ${root} 新增 ${report.added} · 更新 ${report.updated} · 删除 ${report.removed} · 未改 ${report.unchanged} · 共 ${report.docs} 篇`);
+  }
+  if (failed) process.exit(1);
+  if (keywords.length === 0 && !DOCTOR) process.exit(0);
 }
 
 if (DOCTOR) {
@@ -75,12 +100,13 @@ if (DOCTOR) {
 const queryText = positional.join(" ").trim();
 const gate = GATE ?? flagEnabled(process.env.DUIYING_GATE, false);
 const rerank = RERANK ?? flagEnabled(process.env.DUIYING_RERANK, true);
+const index = USE_INDEX ?? flagEnabled(process.env.DUIYING_INDEX, true);
 const ttlRaw = Number(process.env.DUIYING_GATE_TTL_MS);
 const result = search({
   roots: ROOTS, keywords, limit: LIMIT,
   useLinks: USE_LINKS, detail: DETAIL,
   exclude: excludes.length ? excludes : undefined,
-  queryText, gate, rerank,
+  queryText, gate, rerank, index,
   ...(Number.isFinite(ttlRaw) && ttlRaw >= 0 ? { gateTtlMs: ttlRaw } : {}),
 });
 

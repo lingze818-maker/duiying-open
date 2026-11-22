@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+- **增量词法索引（可选）**：每个授权根一份 `.duiying/lexical.json`。可选包 `minisearch` 只做候选召回，沿用中文 bigram 与同义词表，不用它的英文词干，也不用它的分数做最终排序。时间先验、联想、沉默、取代、单字回退、词面重排和门控仍在原引擎。缺索引、索引损坏或未安装该包时走全量扫描。`--reindex` 建立或增量更新；`memory_ingest` 与公司同步在索引已存在时顺带更新。向量候选源只留空位，这一版不启用。
+
 ## [0.4.0] — 2026-11-22
 
 v0.3.0 标签（`a8ccca0`）之后合入 main 的变更。`package.json` 为 0.4.0。CLI 文本引擎行（`v0.4.0`）、JSON 字段 `engine`（`duiying-open/0.4.0`）与 MCP `serverInfo.version` 同号，均从 `package.json` 读取。默认检索与上浮门控不变。

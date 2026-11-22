@@ -54,11 +54,22 @@ Frontends can be replaced. They can die. Your memory stays.
 **No vector database. No graph database. No local models. No API keys.**
 Node 18 or newer. Nothing to install.
 
-> **Honest scope**: the engine is designed for **personal memory banks — dozens
-> to a few thousand Markdown notes**. Every query does a full scan plus the
-> association graph. Thousands of notes run in milliseconds to seconds; going
-> beyond that needs incremental indexing, which is outside the "personal memory"
-> scope on purpose.
+> **Scale**: the default path full-scans on every query. Personal banks (dozens to
+> a few thousand notes) return in milliseconds to seconds, with nothing to install.
+> For a larger bank, build an incremental lexical index under each authorized root
+> (optional package `minisearch`). It only recalls candidates — one index per root,
+> never one index across roots. Time prior, association, silence, supersession,
+> unigram fallback, lexical rerank, and gates still score the hits. The index lives
+> in `<root>/.duiying/` and belongs in `.gitignore`. If the index is missing,
+> corrupt, or the optional package is not installed, search matches the full scan.
+>
+> ```bash
+> npm install minisearch   # optional
+> node engine/surface.mjs --reindex --root /path/to/notes
+> ```
+>
+> `--no-index` or `DUIYING_INDEX=0` forces the full scan. A vector candidate
+> source is reserved on the interface and stays unused in this version.
 
 ## Quick start
 

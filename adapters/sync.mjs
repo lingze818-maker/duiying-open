@@ -7,6 +7,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseFrontmatter } from "../engine/lib.mjs";
+import { refreshIndexIfPresent } from "../engine/candidate-recall.mjs";
+import { INDEX_DIR_NAME } from "../engine/scan.mjs";
 
 export const STATE_FILENAME = ".duiying-company-sync.json";
 
@@ -189,7 +191,7 @@ function findRelBySourceId(root, id) {
       if (entry.name === STATE_FILENAME) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "node_modules" || entry.name === ".git") continue;
+        if (entry.name === "node_modules" || entry.name === ".git" || entry.name === INDEX_DIR_NAME) continue;
         stack.push(full);
         continue;
       }
@@ -293,6 +295,7 @@ export async function syncIntoRoot(adapter, { root, since } = {}) {
     items: state.items,
   };
   fs.writeFileSync(stateFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  try { refreshIndexIfPresent(rootAbs); } catch { /* 同步本身已经落盘；索引坏了检索会退回全量扫描 */ }
   return {
     adapter: adapterId,
     direction: "pull",

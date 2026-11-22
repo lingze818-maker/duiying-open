@@ -2,44 +2,21 @@
  * core.mjs — 检索编排层：给定语料根+关键词 → 结构化结果。
  * CLI（surface.mjs）与 MCP server（mcp/server.mjs）共用这一份实现。
  */
-import fs from "node:fs";
-import path from "node:path";
 import {
   tokenize, buildStats, bm25, timeBoost, hasTimeWord, buildLinks, spread,
-  parseFrontmatter, applyMemoryState, doctor, expandSynonyms,
+  applyMemoryState, doctor, expandSynonyms,
   unigramHits, UNIGRAM_WEIGHT, UNIGRAM_NOTE,
-  overlapRatio, isSuppressed, formatLocalDate, memoryInstant, memoryKey, joinRoot,
+  overlapRatio, isSuppressed, formatLocalDate, memoryKey, joinRoot,
   classifyIntent, anchorKeywords, lexicalScore, isDuplicateQuery, markSurfaced, GATE_TTL_MS,
   isTimeOnlyQuery, supersessionApplies,
 } from "./lib.mjs";
+import { SKIP_DIRS, resolvedRoot, walkMarkdown, readMemoryFile } from "./scan.mjs";
+import { recallCandidates, vectorCandidateSource } from "./candidate-recall.mjs";
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "asar", "build", "dist", ".venv", "venv", "__pycache__", "vendor"]);
 const NEAR_DUP = 0.75;
 const HINT = "除非对方问起或自然相关，不要主动罗列这些记忆。";
 /** CLI / MCP 进程内的去重表。测试可传入自己的 gateSession。 */
 const defaultGateSession = new Map();
-
-function* walk(dir, skip) {
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-  for (const e of entries) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) {
-      if (!(skip || SKIP_DIRS).has(e.name)) yield* walk(p, skip);
-    } else if (e.name.endsWith(".md")) yield p;
-  }
-}
-
-function landmarkTitle(content, file, fm) {
-  const titleM = content.match(/^#\s+(.+)$/m);
-  const heading = titleM ? titleM[1].trim() : path.basename(file, ".md");
-  const custom = fm.get("title");
-  return typeof custom === "string" && custom.trim() ? custom.trim() : heading;
-}
-
-function resolvedRoot(root) {
-  return path.resolve(root).split(path.sep).join("/");
-}
 
 /** 文本输出用：多根时带上根目录，单根仍是相对路径。 */
 export function displayPath(result) {
@@ -51,26 +28,9 @@ function collectDocs(roots, skip) {
   const docs = [];
   for (const root of roots) {
     const rootFwd = resolvedRoot(root);
-    for (const file of walk(root, skip)) {
-      let content;
-      try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
-      if (content.charCodeAt(0) === 0xfeff) content = content.slice(1);
-      const tokens = tokenize(content);
-      const tf = new Map();
-      for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
-      const fm = parseFrontmatter(content);
-      const mtime = fs.statSync(file).mtime;
-      docs.push({
-        root: rootFwd,
-        rel: path.resolve(file).split(path.sep).join("/").replace(rootFwd + "/", ""),
-        base: path.basename(file).toLowerCase(),
-        title: landmarkTitle(content, file, fm),
-        content, mtime,
-        // 发生日：frontmatter date，否则 mtime。时间先验、排序新旧、结果 date 共用这一份。
-        when: memoryInstant(fm, mtime),
-        tf, len: tokens.length,
-        fm,
-      });
+    for (const file of walkMarkdown(root, skip)) {
+      const doc = readMemoryFile(rootFwd, file);
+      if (doc) docs.push(doc);
     }
   }
   return docs;
@@ -198,6 +158,8 @@ function applyLexicalRerank(pool, queryText) {
  *   gateSession?: Map          去重表。缺省用本进程一张表。
  *   gateTtlMs?: number         同一句重复上浮的间隔，默认 120 秒。
  *   rerank?: boolean           词面重排。默认开；只有多条且重合度不同才改分数。
+ *   index?: boolean            词法候选索引。默认开：根下已有一致索引就用它召回，
+ *                              没有、损坏或可选后端没装则全量扫描。传 false 强制全量扫描。
  * @returns {object} { total, hint, results: [{path,root?,title,date,score,links,note?,excerpt?}], gate? }
  *   note 是取代附注，或单字回退时的「按单字近似匹配」。词面或同义词已经有分时不带后者。
  *   多个根时每条带 root（解析后的绝对路径）；path 与 links 相对该根。
@@ -244,9 +206,6 @@ export function search(opts) {
     });
   }
   const skip = opts.exclude ? new Set([...SKIP_DIRS, ...opts.exclude]) : SKIP_DIRS;
-  const docs = collectDocs(roots, skip);
-
-  const stats = buildStats(docs);
   const expanded = expandSynonyms(keywords);
   const silenceQuery = expanded.map(k => k.toLowerCase());
   const qTokens = [...new Set(expanded.flatMap(k => tokenize(k)))];
@@ -254,6 +213,9 @@ export function search(opts) {
   // 只有时间词时，词面没有锚点，不能等 BM25 命中再加权。按记忆发生日把最近的笔记列出来。
   const timeOnly = isTimeOnlyQuery(queryText);
 
+  // Layer 2。docs 可以是全量扫描，也可以只是 Layer 1 召回的候选。
+  // runUnigram 为 false 时，词面完全没分就返回 null，让调用方改走全量扫描做单字回退。
+  function rank(docs, stats, runUnigram) {
   const scored = docs.map((d, idx) => {
     const bm = bm25(qTokens, d, stats);
     let phrase = 0, title = 0;
@@ -280,6 +242,7 @@ export function search(opts) {
   // 词面（bigram + 同义词）已经有分时，不跑单字、不改排序、不附近似说明。
   // 只问时间是另一条路径，按发生日列笔记，也不要插进单字回退。
   if (!timeOnly && !scored.some(r => r.lexical > 0)) {
+    if (!runUnigram) return null;
     for (const r of scored) {
       const hay = `${r.d.base}\n${r.d.title}\n${r.d.content}`;
       const chars = unigramHits(expanded, hay);
@@ -401,6 +364,27 @@ export function search(opts) {
       reason: gateInfo.reason,
     } } : {}),
   };
+  }
+
+  if (opts.index !== false && !timeOnly) {
+    // 向量候选源预留。当前为 null，不并入候选，也不参与打分。
+    const reservedVectorSource = vectorCandidateSource();
+    if (reservedVectorSource && typeof reservedVectorSource.recall === "function") {
+      // 合并点留在 Layer 1。这里不调用，避免在空位上加载任何编码器。
+    }
+    const recalled = recallCandidates({
+      roots,
+      keywords,
+      queryText,
+      exclude: opts.exclude,
+    });
+    if (recalled) {
+      const viaIndex = rank(recalled.docs, recalled.stats, false);
+      if (viaIndex) return viaIndex;
+    }
+  }
+  const docs = collectDocs(roots, skip);
+  return rank(docs, buildStats(docs), true);
 }
 
 /** doctor 体检（--doctor 与 MCP memory_doctor 共用）。 */

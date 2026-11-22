@@ -14,6 +14,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { refreshIndexIfPresent } from "./candidate-recall.mjs";
 
 /** POSIX 上 path.isAbsolute 不认 Windows 盘符，会把 D:/笔记.md 误判成相对路径。 */
 function isAbsolutePath(p) {
@@ -98,6 +99,8 @@ export function ingest(p) {
 
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(fp, lines.join("\n"), "utf8");
+  // 这个根已经有词法索引时，只更新这一次写入带到库里的变化。没有索引就不建。
+  try { refreshIndexIfPresent(root); } catch { /* 索引更新失败不影响入库；下次检索会全量扫描或再试 */ }
   return { file: fp, mode: content ? "inline" : "reference", warnings };
 }
 
