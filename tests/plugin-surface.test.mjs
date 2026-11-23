@@ -29,7 +29,9 @@ test("通用 MCP 配置是粘贴稿，示例库上浮能带回引用", () => {
   const cli = spawnSync(process.execPath, [ENGINE, "部署", "--root", EXAMPLE, "--json"], { encoding: "utf8" });
   assert.equal(cli.status, 0, cli.stderr);
   const payload = JSON.parse(cli.stdout);
-  assert.equal(payload.engine, "duiying-open/0.4.0");
+  // 引擎标识与 package.json 单一来源（版本单一来源化原则，勿写死）
+  const pkgVersion = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+  assert.equal(payload.engine, `duiying-open/${pkgVersion}`);
   const paths = payload.results.map(item => item.path);
   assert.ok(paths.includes("会议纪要.md"));
   assert.ok(paths.includes("决策记录.md"));
