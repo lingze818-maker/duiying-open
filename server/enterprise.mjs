@@ -24,14 +24,20 @@ import { createEmbedder } from "../engine/embedding.mjs";
 import { LocalFileStore } from "../engine/vector-store.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = process.env.ENTERPRISE_CONFIG;
-const PORT = Number(process.env.PORT ?? 8766);
+// 参数优先于环境变量（跨终端/服务管理器更可靠）：--config --data --vec --port --user-header
+const argv = process.argv.slice(2);
+const argOf = (name, fallback) => {
+  const i = argv.indexOf(`--${name}`);
+  return i >= 0 ? argv[i + 1] : fallback;
+};
+const CONFIG_PATH = argOf("config", process.env.ENTERPRISE_CONFIG);
+const PORT = Number(argOf("port", process.env.PORT ?? 8766));
 if (!CONFIG_PATH || !existsSync(CONFIG_PATH)) {
-  console.error("enterprise: 需要 ENTERPRISE_CONFIG 指向 workspace 配置 JSON");
+  console.error("enterprise: 需要 --config <workspace.json 路径>（或环境变量 ENTERPRISE_CONFIG）");
   process.exit(1);
 }
 const CONFIG = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-const DATA_BASE = resolve(process.env.ENTERPRISE_DATA ?? dirname(CONFIG_PATH));
+const DATA_BASE = resolve(argOf("data", process.env.ENTERPRISE_DATA ?? dirname(CONFIG_PATH)));
 
 /** libPaths：库名 → 绝对路径（config.libs[name].path 相对 DATA_BASE 解析）。 */
 const libPaths = {};
@@ -41,10 +47,15 @@ for (const [name, cfg] of Object.entries(CONFIG.libs ?? {})) {
 
 /** 向量路（可选）：目录存在且依赖就绪才启用；否则静默纯词面。 */
 let vecStore = null, embedder = null;
-if (process.env.ENTERPRISE_VEC) {
+const vecDir = argOf("vec", process.env.ENTERPRISE_VEC);
+if (vecDir && existsSync(vecDir)) {
   try {
-    vecStore = new LocalFileStore(process.env.ENTERPRISE_VEC, { dim: 512 }).load();
-    embedder = await createEmbedder({ backend: "transformers.js", offline: true });
+    vecStore = new LocalFileStore(vecDir, { dim: 512 }).load();
+    embedder = await createEmbedder({
+      backend: "transformers.js", offline: true,
+      cacheDir: argOf("cache-dir", process.env.ENTERPRISE_CACHE),
+      remoteHost: process.env.HF_ENDPOINT,
+    });
     console.log("enterprise: 向量路已启用");
   } catch (error) {
     console.log("enterprise: 向量路未启用（" + error.message + "），纯词面检索照常");
@@ -99,7 +110,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/api/search") return await handleSearch(req, res, url);
     if (url.pathname === "/api/health") {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: true, libs: Object.keys(libPaths), vector: !!vecStore }));
+      res.end(JSON.stringify({ ok: true, cwd: process.cwd(), libPaths, vector: !!vecStore }));
       return;
     }
     res.writeHead(404, { "Content-Type": "application/json" });
