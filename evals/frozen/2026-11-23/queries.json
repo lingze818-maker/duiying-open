@@ -1,0 +1,121 @@
+{
+  "id": "frozen-enterprise-2026-11-23",
+  "frozen_at": "2026-11-23",
+  "timezone": "Asia/Shanghai",
+  "now": "2026-11-20T10:00:00+08:00",
+  "k": 10,
+  "vector_enabled": false,
+  "status": "frozen_2026-11-23_enterprise",
+  "roots": {
+    "company": "fixtures/company",
+    "finance": "fixtures/finance",
+    "unauthorized": "fixtures/unauthorized  # never passed as a search root"
+  },
+  "metrics": [
+    "recall@k",
+    "precision@k",
+    "leakage_rate_target_0",
+    "permission_isolation_target_0"
+  ],
+  "queries": [
+    {
+      "id": "E1",
+      "category": "lexical_exact",
+      "query": "差旅 住宿",
+      "roots": ["company"],
+      "must_appear": ["company/公司差旅管理制度.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "制度文件词面直查——企业最高频场景。"
+    },
+    {
+      "id": "E2",
+      "category": "lexical_exact",
+      "query": "服务中断 连接池",
+      "roots": ["company"],
+      "must_appear": ["company/周会纪要-系统上线.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "故障纪要检索——运维复盘场景。"
+    },
+    {
+      "id": "E3",
+      "category": "lexical_exact",
+      "query": "岗位职责",
+      "roots": ["company"],
+      "must_appear": ["company/信息科岗位职责.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "职责类文档标题命中。"
+    },
+    {
+      "id": "E4",
+      "category": "lexical_exact",
+      "query": "报销 票据",
+      "roots": ["company", "finance"],
+      "must_appear": ["finance/报销流程指引.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "多根联合检索（公共+财务），财务文档应命中。"
+    },
+    {
+      "id": "P1",
+      "category": "permission_isolation",
+      "query": "预算 执行率",
+      "roots": ["company"],
+      "must_not_appear": ["finance/预算执行说明.md", "unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "权限隔离核心用例：只授 company 根的用户查财务关键词，财务库文档不得出现——测「查前组装」的泄漏率为零。"
+    },
+    {
+      "id": "P2",
+      "category": "permission_isolation",
+      "query": "部署",
+      "roots": ["company", "finance"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "授权根含高频词，未授权根内容（外人笔记内含「部署」字样）绝不可出现。"
+    },
+    {
+      "id": "E5",
+      "category": "lexical_exact",
+      "query": "安全 外部云服务",
+      "roots": ["company"],
+      "must_appear": ["company/数据安全管理办法.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "制度条款检索。"
+    },
+    {
+      "id": "S1",
+      "category": "semantic_pending_vector",
+      "query": "服务器宕机",
+      "roots": ["company"],
+      "must_appear": [],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "zero_recall_allowed",
+      "pending_vector": "服务中断.md 应在向量路启用后被召回",
+      "note": "同义替换对：宕机 vs 中断——词面零召回允许，向量路验收用。"
+    },
+    {
+      "id": "S2",
+      "category": "semantic_pending_vector",
+      "query": "电脑系统坏了",
+      "roots": ["company"],
+      "must_appear": [],
+      "lexical_current": "zero_recall_allowed",
+      "pending_vector": "周会纪要-系统上线.md 应在向量路启用后被召回",
+      "note": "口语化查询 vs 书面纪要——语义路价值最高的场景形态。"
+    },
+    {
+      "id": "E6",
+      "category": "lexical_exact",
+      "query": "审批 负责人",
+      "roots": ["company", "finance"],
+      "must_appear": ["company/公司差旅管理制度.md", "finance/报销流程指引.md"],
+      "must_not_appear": ["unauthorized/外人笔记.md"],
+      "lexical_current": "pass",
+      "note": "跨文档同主题（审批链）双命中。"
+    }
+  ]
+}
