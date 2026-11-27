@@ -217,6 +217,7 @@ node engine/surface.mjs --doctor --root ./我的记忆库
 - [x] v0.2 批二：取代标记 / 沉默列表 / doctor 体检
 - [x] v0.3：检索降噪与契约对齐 / 多根身份 / frontmatter 记忆日期 / 上浮门控与词面重排 / 只问时间与按条取代
 - [x] v0.4：CJK 单字回退（仅 bigram 与同义词扩展都零命中）/ 冻结评测集 `evals/frozen/2026-11-22/` / 公司文档拉取（`DUIYING_HOOK_SYNC` 默认关）
+- [x] v0.5-enterprise-preview：向量+词面双路检索（可插拔 embedding 后端，BGE 中文小杯离线分发）/ 分库权限与审计（查前组装）/ 文档批量导入器（Word/Excel/Markdown）/ 企业检索服务与最小 Web 页 / 一键部署脚本与安装手册 / 企业冻结评测集 `evals/frozen/2026-11-23/`（10 条全过、权限泄漏 0）
 - [ ] 批三（评估中）：闲时 LLM 提炼候选记忆（人工确认入库）/ 稳定档案层
 - [x] 真机演示 GIF
 
